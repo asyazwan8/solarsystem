@@ -34,8 +34,13 @@ const viewerView = document.getElementById('viewer-view');
 const viewer = document.getElementById('viewer');
 const viewerTitle = document.getElementById('viewer-title');
 const backButton = document.getElementById('back-button');
+const infoButton = document.getElementById('info-button');
+const infoSheet = document.getElementById('info-sheet');
+const infoTitle = document.getElementById('info-title');
+const infoBody = document.getElementById('info-body');
 
 let manifest = [];
+let currentModel = null;
 const historyStack = [];
 
 // ---- helpers ----
@@ -130,13 +135,34 @@ function createCard(model) {
 
 // ---- viewer ----
 
+// Build the iOS Quick Look URL, adding a native info banner (title + subtitle
+// + "Learn more" button) when the model has info. These #params are read by
+// Quick Look on iOS; see Apple's AR Quick Look banner docs.
+function quickLookSrc(usdz, model) {
+  if (!model.subtitle && !model.blurb) return usdz;
+  const parts = [`checkoutTitle=${encodeURIComponent(model.name)}`];
+  if (model.subtitle) parts.push(`checkoutSubtitle=${encodeURIComponent(model.subtitle)}`);
+  parts.push(`callToAction=${encodeURIComponent('Learn more')}`);
+  if (model.arInfoUrl) parts.push(`canonicalWebPageURL=${encodeURIComponent(model.arInfoUrl)}`);
+  return `${usdz}#${parts.join('&')}`;
+}
+
 function applyModel(model) {
+  currentModel = model;
   const { glb, usdz, poster } = pathsFor(model.id);
   viewer.setAttribute('src', glb);
-  viewer.setAttribute('ios-src', usdz);
+  viewer.setAttribute('ios-src', quickLookSrc(usdz, model));
   viewer.setAttribute('poster', poster);
   viewer.setAttribute('alt', `3D model of ${model.name}`);
   viewerTitle.textContent = model.name;
+
+  // In-page info panel (works on every platform, unlike AR-session overlays)
+  const hasInfo = Boolean(model.blurb || model.subtitle);
+  infoButton.hidden = !hasInfo;
+  infoTitle.textContent = model.name;
+  infoBody.textContent = model.blurb || model.subtitle || '';
+  closeInfo();
+
   setupHotspots(model);
 }
 
@@ -181,9 +207,11 @@ function showGallery() {
   galleryView.hidden = false;
   // Release the current model from memory and reset navigation.
   clearHotspots();
+  closeInfo();
   viewer.removeAttribute('src');
   viewer.removeAttribute('ios-src');
   viewer.removeAttribute('poster');
+  currentModel = null;
   historyStack.length = 0;
 }
 
@@ -210,6 +238,29 @@ function goBack() {
     showGallery();
   }
 }
+
+// ---- info panel ----
+
+function openInfo() {
+  infoSheet.hidden = false;
+}
+
+function closeInfo() {
+  infoSheet.hidden = true;
+}
+
+infoButton.addEventListener('click', openInfo);
+infoSheet.addEventListener('click', (e) => {
+  if (e.target.hasAttribute('data-close')) closeInfo();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !infoSheet.hidden) closeInfo();
+});
+
+// iOS Quick Look fires this when the banner's "Learn more" button is tapped.
+viewer.addEventListener('quick-look-button-tapped', () => {
+  if (currentModel?.arInfoUrl) window.open(currentModel.arInfoUrl, '_blank', 'noopener');
+});
 
 backButton.addEventListener('click', goBack);
 

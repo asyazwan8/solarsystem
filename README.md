@@ -92,18 +92,35 @@ Both models are already in the repo, derived from your Sketchfab `.glb` files
 
 | id             | name         | what's in the folder                |
 | -------------- | ------------ | ----------------------------------- |
-| `solar-system` | Solar System | `model.glb` (3.9 MB), `model.usdz` (9.1 MB) |
-| `sun`          | The Sun      | `model.glb` (0.66 MB), `model.usdz` (1.7 MB) |
+| `solar-system` | Solar System | `model.glb` (2.7 MB), `model.usdz` (1.9 MB), `poster.webp` |
+| `sun`          | The Sun      | `model.glb` (0.68 MB), `model.usdz` (1.3 MB), `poster.webp` |
 
 **What was done to them**
 
-- **Compressed the `.glb`** with Draco (geometry) + WebP textures, no mesh
-  simplification: solar system 10.6 MB → 3.9 MB, sun 2.1 MB → 0.66 MB. Both
-  keep their original animations and validate clean.
-- **Generated a real `.usdz`** for each from the original geometry + textures
+- **Compressed the `.glb`** with Draco (geometry) + WebP textures, textures
+  capped at 1024 px, no mesh simplification: solar system 10.6 MB → 2.7 MB, sun
+  2.1 MB → 0.68 MB. Both keep their original animations and validate clean.
+- **Generated a real `.usdz`** for each from the actual geometry + textures
   (`UsdGeom.Mesh` + `UsdPreviewSurface`, packaged for ARKit), since you only
-  supplied `.glb`. Both pass `UsdUtils.ComplianceChecker(arkit=True)` with zero
-  errors.
+  supplied `.glb`. Textures are capped at 1024 px to keep the AR download small
+  (solar system `.usdz` 9.1 MB → 1.9 MB). Both pass
+  `UsdUtils.ComplianceChecker(arkit=True)` with zero errors.
+- **Rendered `poster.webp` thumbnails** for the gallery cards (offscreen render
+  of each model on the app's dark background).
+
+**Info, two ways**
+
+- **In-page info panel** — the ⓘ button (top-right of the viewer) opens a bottom
+  sheet with the model's name and description. This works on every platform and
+  has no size or formatting limits, so it's the richest place for info.
+- **iOS AR banner** — in Quick Look AR, a native banner shows the model's title,
+  subtitle, and a "Learn more" button (wired to the model's Sketchfab page). It's
+  built from each model's `subtitle` / `arInfoUrl` in `models.json` and appended
+  to the `.usdz` URL automatically. Android Scene Viewer only shows a minimal
+  title; a fully custom in-AR overlay would require WebXR (Android only).
+
+Add `subtitle`, `blurb`, and `arInfoUrl` to a model in `models.json` to give it
+info; omit them and the ⓘ button simply doesn't appear.
 
 **Animation:** both models are animated (the solar system orbits over 20 s; the
 sun pulses over 33 s). The `<model-viewer>` has `autoplay`, so the in-page 3D
@@ -111,11 +128,9 @@ view and Android Scene Viewer AR play the animation. The `.usdz` is a static
 snapshot of the rest pose — iOS Quick Look AR shows the posed model, not the
 motion. (Animated USDZ is a larger lift; say the word if you want it.)
 
-**Posters:** no `poster.webp` thumbnails are included (they can't be rendered
-here without a browser/GPU). The gallery falls back to the model's initial on a
-tile, which is intentional and fine. To add real thumbnails later, drop a
-`poster.webp` into each model folder — e.g. screenshot the model in the viewer,
-or grab the thumbnail from its Sketchfab page.
+**Posters:** `poster.webp` thumbnails are included for both models (rendered
+offscreen). To refresh or add one, drop a new `poster.webp` into the model
+folder.
 
 (You can remove `sun` from `models.json` if you only want it reachable by tapping
 the Sun — the tap-to-switch still works either way, since `public/models/sun/`

@@ -41,6 +41,9 @@
       <button id="back-button" type="button">
         <span aria-hidden="true">&lsaquo;</span> Back
       </button>
+      <button id="info-button" type="button" aria-label="About this model">
+        <span aria-hidden="true">i</span>
+      </button>
       <h2 id="viewer-title" class="viewer-title"></h2>
 
       <model-viewer
@@ -59,6 +62,16 @@
              own labelled button in the documented ar-button slot. -->
         <button id="ar-button" slot="ar-button" type="button">View in AR</button>
       </model-viewer>
+
+      <!-- Info sheet (in-page; works on every platform) -->
+      <div id="info-sheet" class="info-sheet" hidden>
+        <div class="info-backdrop" data-close></div>
+        <div class="info-card" role="dialog" aria-modal="true" aria-labelledby="info-title">
+          <button class="info-close" type="button" data-close aria-label="Close">&times;</button>
+          <h2 id="info-title"></h2>
+          <p id="info-body"></p>
+        </div>
+      </div>
     </section>
 
     <script type="module" src="/main.js"></script>

@@ -1,4 +1,16 @@
 [
-  { "id": "solar-system", "name": "Solar System" },
-  { "id": "sun", "name": "The Sun" }
+  {
+    "id": "solar-system",
+    "name": "Solar System",
+    "subtitle": "The Sun and its eight planets",
+    "blurb": "A model of our solar system — the Sun at the centre, orbited by Mercury, Venus, Earth (with the Moon), Mars, Jupiter, Saturn, Uranus, Neptune, and Pluto. Tap the Sun to explore it on its own.",
+    "arInfoUrl": "https://sketchfab.com/3d-models/solar-system-animation-b7c69a6b655b47c99f871d5ec5aee854"
+  },
+  {
+    "id": "sun",
+    "name": "The Sun",
+    "subtitle": "The star at the centre of the solar system",
+    "blurb": "The Sun is the star at the centre of the solar system: a sphere of hot plasma about 1.39 million km across and roughly 4.6 billion years old, generating its energy by nuclear fusion in the core.",
+    "arInfoUrl": "https://sketchfab.com/3d-models/sun-9ef1c68fbb944147bcfcc891d3912645"
+  }
 ]
