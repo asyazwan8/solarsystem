@@ -66,7 +66,19 @@
         <button id="ar-button" slot="ar-button" type="button">View in AR</button>
       </model-viewer>
 
-      <!-- Info sheet (in-page; works on every platform) -->
+      <!-- Lateral navigation: swipe across the model, or tap these arrows -->
+      <button id="prev-button" class="nav-arrow" type="button" aria-label="Previous model">
+        <span aria-hidden="true">&lsaquo;</span>
+      </button>
+      <button id="next-button" class="nav-arrow nav-arrow--right" type="button" aria-label="Next model">
+        <span aria-hidden="true">&rsaquo;</span>
+      </button>
+
+      <!-- Solar-system hub: jump straight to any body (shown only for the
+           Solar System, since it links out to every model like the Sun does) -->
+      <div id="body-dock" class="body-dock" hidden></div>
+
+      <!-- Info layer (floats over the model; the model stays visible behind) -->
       <div id="info-sheet" class="info-sheet" hidden>
         <div class="info-backdrop" data-close></div>
         <div class="info-card" role="dialog" aria-modal="true" aria-labelledby="info-title">

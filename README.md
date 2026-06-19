@@ -2,7 +2,13 @@
 
 A minimal, cross-platform AR web app for viewing 3D models on iPhone and Android — built with [Vite](https://vitejs.dev/) and Google's [`<model-viewer>`](https://modelviewer.dev/). No framework, no backend, no API keys.
 
-Models are shown in a **swipeable card carousel**; tap a card to open a full-screen 3D viewer with a **View in AR** button. This build also has one custom interaction: while viewing the **Solar System**, a marker sits on the Sun — tapping it switches the viewer to the standalone **Sun** model.
+Models are shown in a **swipeable card carousel**; tap a card to open a full-screen 3D viewer. In the viewer you can:
+
+- **Swipe left/right** (or use the on-screen arrows / keyboard arrows) to move between models.
+- **Tap ⓘ** to bring up an **info layer** that floats over the model (the model stays visible behind it).
+- **View in AR** via the orange button (Quick Look on iOS, Scene Viewer / WebXR on Android).
+
+The **Solar System** is a hub: a marker on the Sun opens the standalone Sun model, and a **dock of every body** lets you jump straight to any planet. (The dock is used instead of a marker on each planet because the planets orbit, so an on-body marker would drift off them as they move.)
 
 ## Tech stack
 
@@ -94,9 +100,11 @@ Saturn, Uranus, Neptune**. Carousel order follows the order in `models.json`.
 
 **What was done to them**
 
-- **Compressed the `.glb`** with Draco (geometry) + WebP textures, textures
-  capped at 1024 px, no mesh simplification. Animations are kept where present
-  (the solar system orbits; the sun pulses).
+- **Compressed the `.glb`** with Draco (geometry) and textures capped at
+  1024 px, no mesh simplification. Textures are kept in their original
+  **JPEG/PNG** format (not WebP) so they decode reliably on every device — WebP
+  textures were the cause of models occasionally rendering gray/untextured.
+  Animations are kept where present (the solar system orbits; the sun pulses).
 - **Generated a real `.usdz`** for each from the actual geometry + textures
   (`UsdGeom.Mesh` + `UsdPreviewSurface`, packaged for ARKit), since you only
   supplied `.glb`. All ten pass `UsdUtils.ComplianceChecker(arkit=True)` with

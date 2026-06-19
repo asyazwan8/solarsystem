@@ -36,6 +36,9 @@ const viewerView = document.getElementById('viewer-view');
 const viewer = document.getElementById('viewer');
 const viewerTitle = document.getElementById('viewer-title');
 const backButton = document.getElementById('back-button');
+const prevButton = document.getElementById('prev-button');
+const nextButton = document.getElementById('next-button');
+const bodyDock = document.getElementById('body-dock');
 const infoButton = document.getElementById('info-button');
 const infoSheet = document.getElementById('info-sheet');
 const infoTitle = document.getElementById('info-title');
@@ -197,6 +200,48 @@ function applyModel(model) {
   closeInfo();
 
   setupHotspots(model);
+  updateBodyDock(model);
+}
+
+// The Solar System links out to every other model — like tapping the Sun, but
+// for all bodies. (On-body hotspots can't track the planets while they orbit,
+// so this dock is the reliable equivalent.) Built once, shown only here.
+function updateBodyDock(model) {
+  if (model.id !== 'solar-system' || manifest.length < 2) {
+    bodyDock.hidden = true;
+    return;
+  }
+  if (bodyDock.dataset.built !== '1') {
+    bodyDock.replaceChildren();
+    for (const m of manifest) {
+      if (m.id === 'solar-system') continue;
+      const { poster } = pathsFor(m.id);
+      const chip = document.createElement('button');
+      chip.className = 'dock-chip';
+      chip.type = 'button';
+      chip.setAttribute('aria-label', `Open ${m.name}`);
+
+      const img = document.createElement('img');
+      img.loading = 'lazy';
+      img.alt = '';
+      img.src = poster;
+      img.addEventListener('error', () => {
+        img.remove();
+        chip.classList.add('dock-chip--noimg');
+        chip.dataset.initial = (m.name?.[0] ?? '?').toUpperCase();
+      });
+
+      const cap = document.createElement('span');
+      cap.className = 'dock-cap';
+      cap.textContent = m.name;
+
+      chip.append(img, cap);
+      chip.addEventListener('click', () => switchToModel(getModel(m.id)));
+      bodyDock.appendChild(chip);
+    }
+    bodyDock.dataset.built = '1';
+  }
+  bodyDock.hidden = false;
 }
 
 function clearHotspots() {
@@ -241,6 +286,7 @@ function showGallery() {
   // Release the current model from memory and reset navigation.
   clearHotspots();
   closeInfo();
+  bodyDock.hidden = true;
   viewer.removeAttribute('src');
   viewer.removeAttribute('ios-src');
   viewer.removeAttribute('poster');
@@ -272,6 +318,20 @@ function goBack() {
   }
 }
 
+// Lateral move to the previous/next model in the carousel order (wraps around).
+// This is a sideways step, not a drill-down, so it replaces the current entry
+// in the trail rather than growing it — Back still returns where you came from.
+function navigateBy(delta) {
+  if (!currentModel || manifest.length < 2) return;
+  let i = manifest.findIndex((m) => m.id === currentModel.id);
+  if (i === -1) i = 0;
+  const next = manifest[(i + delta + manifest.length) % manifest.length];
+  if (next.id === currentModel.id) return;
+  if (historyStack.length) historyStack[historyStack.length - 1] = next;
+  else historyStack.push(next);
+  applyModel(next);
+}
+
 // ---- info panel ----
 
 function openInfo() {
@@ -296,5 +356,48 @@ viewer.addEventListener('quick-look-button-tapped', () => {
 });
 
 backButton.addEventListener('click', goBack);
+prevButton.addEventListener('click', () => navigateBy(-1));
+nextButton.addEventListener('click', () => navigateBy(1));
+
+// Arrow keys (desktop) — only while the viewer is open and info is closed.
+document.addEventListener('keydown', (e) => {
+  if (viewerView.hidden || !infoSheet.hidden) return;
+  if (e.key === 'ArrowRight') navigateBy(1);
+  else if (e.key === 'ArrowLeft') navigateBy(-1);
+});
+
+// Swipe across the model to change planets. Listened in the capture phase so we
+// measure the gesture before <model-viewer> consumes it for camera rotation;
+// we don't preventDefault, so normal drag-to-rotate still works. A switch fires
+// only on a clearly horizontal flick that doesn't start on a control.
+let swipe = null;
+viewerView.addEventListener(
+  'touchstart',
+  (e) => {
+    if (!infoSheet.hidden || e.touches.length !== 1 ||
+        e.target.closest('#body-dock, button')) {
+      swipe = null;
+      return;
+    }
+    const t = e.touches[0];
+    swipe = { x: t.clientX, y: t.clientY, t: Date.now() };
+  },
+  { capture: true, passive: true },
+);
+viewerView.addEventListener(
+  'touchend',
+  (e) => {
+    if (!swipe) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - swipe.x;
+    const dy = t.clientY - swipe.y;
+    const dt = Date.now() - swipe.t;
+    swipe = null;
+    if (dt < 700 && Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.7) {
+      navigateBy(dx < 0 ? 1 : -1);
+    }
+  },
+  { capture: true, passive: true },
+);
 
 loadManifest();
