@@ -2,7 +2,7 @@
 
 A minimal, cross-platform AR web app for viewing 3D models on iPhone and Android — built with [Vite](https://vitejs.dev/) and Google's [`<model-viewer>`](https://modelviewer.dev/). No framework, no backend, no API keys.
 
-Models are shown in a responsive gallery; tapping one opens a full-screen 3D viewer with a **View in AR** button. This build also has one custom interaction: while viewing the **Solar System**, a marker sits on the Sun — tapping it switches the viewer to the standalone **Sun** model.
+Models are shown in a **swipeable card carousel**; tap a card to open a full-screen 3D viewer with a **View in AR** button. This build also has one custom interaction: while viewing the **Solar System**, a marker sits on the Sun — tapping it switches the viewer to the standalone **Sun** model.
 
 ## Tech stack
 
@@ -87,26 +87,30 @@ you never touch the code to add a model — the gallery rebuilds itself from
 
 ## Included models
 
-Both models are already in the repo, derived from your Sketchfab `.glb` files
-(check/respect each model's Sketchfab license + attribution terms):
-
-| id             | name         | what's in the folder                |
-| -------------- | ------------ | ----------------------------------- |
-| `solar-system` | Solar System | `model.glb` (2.7 MB), `model.usdz` (1.9 MB), `poster.webp` |
-| `sun`          | The Sun      | `model.glb` (0.68 MB), `model.usdz` (1.3 MB), `poster.webp` |
+Ten models are included, derived from your Sketchfab `.glb` files (check/respect
+each model's Sketchfab license + attribution terms): the full **Solar System**,
+the **Sun**, and all eight planets — **Mercury, Venus, Earth, Mars, Jupiter,
+Saturn, Uranus, Neptune**. Carousel order follows the order in `models.json`.
 
 **What was done to them**
 
 - **Compressed the `.glb`** with Draco (geometry) + WebP textures, textures
-  capped at 1024 px, no mesh simplification: solar system 10.6 MB → 2.7 MB, sun
-  2.1 MB → 0.68 MB. Both keep their original animations and validate clean.
+  capped at 1024 px, no mesh simplification. Animations are kept where present
+  (the solar system orbits; the sun pulses).
 - **Generated a real `.usdz`** for each from the actual geometry + textures
   (`UsdGeom.Mesh` + `UsdPreviewSurface`, packaged for ARKit), since you only
-  supplied `.glb`. Textures are capped at 1024 px to keep the AR download small
-  (solar system `.usdz` 9.1 MB → 1.9 MB). Both pass
-  `UsdUtils.ComplianceChecker(arkit=True)` with zero errors.
-- **Rendered `poster.webp` thumbnails** for the gallery cards (offscreen render
-  of each model on the app's dark background).
+  supplied `.glb`. All ten pass `UsdUtils.ComplianceChecker(arkit=True)` with
+  zero errors.
+- **Rendered `poster.webp` thumbnails** for the cards (offscreen render of each
+  model on the app's dark background).
+- **Normalized AR size.** The source models are authored at wildly different
+  scales (Mercury is ~2 units across, Uranus ~200,000), so a literal "10% of
+  each model's own size" would make some planets kilometres wide in AR and
+  others centimetres. Instead, each model's AR assets are scaled so it places at
+  a consistent real-world size — **single bodies ≈ 0.4 m, the whole solar system
+  ≈ 1.5 m** — and `<model-viewer>` uses `ar-scale="fixed"` to lock it. To change
+  a target size, re-run the asset pipeline with a different value (see
+  `glb_to_usdz.py` / the scale helpers).
 
 **Info, two ways**
 

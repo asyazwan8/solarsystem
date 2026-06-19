@@ -31,9 +31,12 @@
     <main id="gallery-view">
       <header class="app-header">
         <h1>Solar System AR</h1>
-        <p class="subtitle">Tap a model to view it in 3D &amp; AR</p>
+        <p class="subtitle">Swipe through, tap to explore in 3D &amp; AR</p>
       </header>
-      <div id="grid" class="grid"></div>
+      <div id="carousel" class="carousel">
+        <div id="track" class="carousel-track"></div>
+      </div>
+      <div id="dots" class="carousel-dots" aria-hidden="true"></div>
     </main>
 
     <!-- ===== Single-model viewer ===== -->
@@ -51,7 +54,7 @@
         ar
         ar-modes="webxr scene-viewer quick-look"
         ar-placement="floor"
-        ar-scale="auto"
+        ar-scale="fixed"
         camera-controls
         auto-rotate
         autoplay

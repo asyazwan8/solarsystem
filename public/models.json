@@ -12,5 +12,61 @@
     "subtitle": "The star at the centre of the solar system",
     "blurb": "The Sun is the star at the centre of the solar system: a sphere of hot plasma about 1.39 million km across and roughly 4.6 billion years old, generating its energy by nuclear fusion in the core.",
     "arInfoUrl": "https://sketchfab.com/3d-models/sun-9ef1c68fbb944147bcfcc891d3912645"
+  },
+  {
+    "id": "mercury",
+    "name": "Mercury",
+    "subtitle": "Closest planet to the Sun",
+    "blurb": "The smallest planet and the closest to the Sun, Mercury is a cratered, nearly airless world where a single day lasts about 59 Earth days.",
+    "arInfoUrl": "https://en.wikipedia.org/wiki/Mercury_(planet)"
+  },
+  {
+    "id": "venus",
+    "name": "Venus",
+    "subtitle": "The hottest planet",
+    "blurb": "Similar in size to Earth but wrapped in a thick carbon-dioxide atmosphere, Venus is the hottest planet, with surface temperatures around 465 °C.",
+    "arInfoUrl": "https://en.wikipedia.org/wiki/Venus"
+  },
+  {
+    "id": "earth",
+    "name": "Earth",
+    "subtitle": "Our home planet",
+    "blurb": "Our home planet — the only known world with liquid water on its surface and life, orbited by a single large Moon.",
+    "arInfoUrl": "https://en.wikipedia.org/wiki/Earth"
+  },
+  {
+    "id": "mars",
+    "name": "Mars",
+    "subtitle": "The Red Planet",
+    "blurb": "The Red Planet, whose rusty colour comes from iron oxide. Mars has the tallest volcano and one of the largest canyons in the solar system.",
+    "arInfoUrl": "https://en.wikipedia.org/wiki/Mars"
+  },
+  {
+    "id": "jupiter",
+    "name": "Jupiter",
+    "subtitle": "The largest planet",
+    "blurb": "The largest planet — a giant ball of gas more than twice as massive as all the other planets combined, famous for its Great Red Spot storm.",
+    "arInfoUrl": "https://en.wikipedia.org/wiki/Jupiter"
+  },
+  {
+    "id": "saturn",
+    "name": "Saturn",
+    "subtitle": "The ringed gas giant",
+    "blurb": "The ringed gas giant, circled by bright bands of icy particles and dozens of moons. It is the least dense planet — it would float in water.",
+    "arInfoUrl": "https://en.wikipedia.org/wiki/Saturn"
+  },
+  {
+    "id": "uranus",
+    "name": "Uranus",
+    "subtitle": "The sideways ice giant",
+    "blurb": "An ice giant that rotates on its side, giving it extreme seasons. Its blue-green colour comes from methane in the atmosphere.",
+    "arInfoUrl": "https://en.wikipedia.org/wiki/Uranus"
+  },
+  {
+    "id": "neptune",
+    "name": "Neptune",
+    "subtitle": "The farthest planet",
+    "blurb": "The most distant planet, a cold, windy ice giant with the fastest winds in the solar system, exceeding 2,000 km/h.",
+    "arInfoUrl": "https://en.wikipedia.org/wiki/Neptune"
   }
 ]

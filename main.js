@@ -29,7 +29,9 @@ const MODEL_HOTSPOTS = {
 
 // ---- element references ----
 const galleryView = document.getElementById('gallery-view');
-const grid = document.getElementById('grid');
+const carousel = document.getElementById('carousel');
+const track = document.getElementById('track');
+const dots = document.getElementById('dots');
 const viewerView = document.getElementById('viewer-view');
 const viewer = document.getElementById('viewer');
 const viewerTitle = document.getElementById('viewer-title');
@@ -81,24 +83,50 @@ async function loadManifest() {
     console.error('Could not load models.json:', err);
     manifest = [];
   }
-  renderGrid();
+  renderGallery();
 }
 
-function renderGrid() {
-  grid.replaceChildren();
+function renderGallery() {
+  track.replaceChildren();
+  dots.replaceChildren();
 
   if (manifest.length === 0) {
     const empty = document.createElement('p');
     empty.className = 'empty';
     empty.textContent =
       'No models yet. Add a folder to /public/models/ and list it in models.json.';
-    grid.appendChild(empty);
+    track.appendChild(empty);
     return;
   }
 
-  for (const model of manifest) {
-    grid.appendChild(createCard(model));
+  manifest.forEach(() => {
+    const dot = document.createElement('span');
+    dot.className = 'dot';
+    dots.appendChild(dot);
+  });
+  manifest.forEach((model) => track.appendChild(createCard(model)));
+  observeCarousel();
+}
+
+// Highlight the dot for whichever card is centered in the viewport.
+function observeCarousel() {
+  const cards = [...track.children];
+  const dotEls = [...dots.children];
+  if (!cards.length || !window.IntersectionObserver) {
+    dotEls[0]?.classList.add('dot--active');
+    return;
   }
+  const io = new IntersectionObserver(
+    (entries) => {
+      for (const e of entries) {
+        if (!e.isIntersecting) continue;
+        const idx = cards.indexOf(e.target);
+        dotEls.forEach((d, i) => d.classList.toggle('dot--active', i === idx));
+      }
+    },
+    { root: carousel, threshold: 0.6 },
+  );
+  cards.forEach((c) => io.observe(c));
 }
 
 function createCard(model) {
@@ -109,26 +137,31 @@ function createCard(model) {
   card.type = 'button';
   card.setAttribute('aria-label', `View ${model.name} in 3D and AR`);
 
-  const thumb = document.createElement('div');
-  thumb.className = 'thumb';
-
   const img = document.createElement('img');
+  img.className = 'card-img';
   img.loading = 'lazy';
   img.alt = '';
   img.src = poster;
-  // If poster.webp is missing, fall back to the model's initial.
   img.addEventListener('error', () => {
     img.remove();
-    thumb.classList.add('thumb--placeholder');
-    thumb.textContent = (model.name?.[0] ?? '?').toUpperCase();
+    card.classList.add('card--noimg');
+    card.dataset.initial = (model.name?.[0] ?? '?').toUpperCase();
   });
-  thumb.appendChild(img);
 
-  const label = document.createElement('span');
-  label.className = 'card-label';
-  label.textContent = model.name;
+  const overlay = document.createElement('div');
+  overlay.className = 'card-overlay';
+  const name = document.createElement('span');
+  name.className = 'card-name';
+  name.textContent = model.name;
+  overlay.appendChild(name);
+  if (model.subtitle) {
+    const sub = document.createElement('span');
+    sub.className = 'card-sub';
+    sub.textContent = model.subtitle;
+    overlay.appendChild(sub);
+  }
 
-  card.append(thumb, label);
+  card.append(img, overlay);
   card.addEventListener('click', () => openModel(model));
   return card;
 }
