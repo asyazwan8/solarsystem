@@ -103,14 +103,16 @@ function applyModel(model) {
     viewer.setAttribute('ios-src', quickLookSrc(usdz, model));
   }
 
-  // Camera: give the flat solar system a gentle top-down angle and let kids
-  // zoom right in to the small inner planets; planets reset to defaults.
+  // Camera: the home opens zoomed in (Sun large, planets trailing off) and lets
+  // kids pinch right in to the small inner planets or out to see the whole row.
   if (home) {
-    viewer.setAttribute('camera-orbit', '0deg 68deg auto');
-    viewer.setAttribute('min-camera-orbit', 'auto auto 12%');
+    viewer.setAttribute('camera-orbit', '0deg 68deg 60%');
+    viewer.setAttribute('min-camera-orbit', 'auto auto 8%');
+    viewer.setAttribute('max-camera-orbit', 'auto auto 160%');
   } else {
     viewer.setAttribute('camera-orbit', '0deg 75deg auto');
     viewer.removeAttribute('min-camera-orbit');
+    viewer.removeAttribute('max-camera-orbit');
   }
 
   // Chrome: home is the hub (markers, no back/AR/facts); planets get the rest.
