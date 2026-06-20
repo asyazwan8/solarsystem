@@ -532,3 +532,63 @@ body {
 .dock-chip:active img {
   filter: brightness(0.9);
 }
+
+/* Tap-a-planet hint (home only) */
+.hint {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--safe-bottom) + 24px);
+  transform: translateX(-50%);
+  z-index: 3;
+  margin: 0;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: rgba(24, 24, 27, 0.55);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  color: var(--text-dim);
+  font-size: 0.82rem;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* Fun-fact chips (planet pages) */
+.facts-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--safe-bottom) + 84px);
+  z-index: 3;
+  display: flex;
+  gap: 10px;
+  padding: 4px max(16px, var(--safe-right)) 4px max(16px, var(--safe-left));
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.facts-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.fact-chip {
+  flex: 0 0 auto;
+  max-width: 72vw;
+  padding: 10px 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: rgba(24, 24, 27, 0.62);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 550;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.fact-chip:active {
+  background: rgba(40, 40, 46, 0.85);
+}

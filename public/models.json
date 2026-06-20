@@ -2,71 +2,115 @@
   {
     "id": "solar-system",
     "name": "Solar System",
-    "subtitle": "The Sun and its eight planets",
-    "blurb": "A model of our solar system — the Sun at the centre, orbited by Mercury, Venus, Earth (with the Moon), Mars, Jupiter, Saturn, Uranus, Neptune, and Pluto. Tap the Sun to explore it on its own.",
-    "arInfoUrl": "https://sketchfab.com/3d-models/solar-system-animation-b7c69a6b655b47c99f871d5ec5aee854"
+    "subtitle": "The Sun and its planets",
+    "blurb": "Our solar system: the Sun and the eight planets that orbit it. Tap any planet to explore it up close and in AR."
   },
   {
     "id": "sun",
     "name": "The Sun",
-    "subtitle": "The star at the centre of the solar system",
-    "blurb": "The Sun is the star at the centre of the solar system: a sphere of hot plasma about 1.39 million km across and roughly 4.6 billion years old, generating its energy by nuclear fusion in the core.",
-    "arInfoUrl": "https://sketchfab.com/3d-models/sun-9ef1c68fbb944147bcfcc891d3912645"
+    "subtitle": "Our nearest star",
+    "blurb": "The Sun is the star at the centre of the solar system and keeps every planet in orbit.",
+    "arInfoUrl": "https://en.wikipedia.org/wiki/Sun",
+    "funFacts": [
+      { "label": "A giant star", "text": "The Sun is a star \u2014 a giant ball of glowing gas so big that about 1.3 million Earths could fit inside it!" },
+      { "label": "Super hot", "text": "The Sun's surface is around 5,500\u00b0C. Even from 150 million km away, it keeps our whole planet warm." },
+      { "label": "Light takes 8 minutes", "text": "Sunlight travels so far that it takes about 8 minutes to reach Earth \u2014 so you always see the Sun as it looked 8 minutes ago!" }
+    ]
   },
   {
     "id": "mercury",
     "name": "Mercury",
-    "subtitle": "Closest planet to the Sun",
-    "blurb": "The smallest planet and the closest to the Sun, Mercury is a cratered, nearly airless world where a single day lasts about 59 Earth days.",
-    "arInfoUrl": "https://en.wikipedia.org/wiki/Mercury_(planet)"
+    "subtitle": "Closest to the Sun",
+    "blurb": "The smallest planet and the closest to the Sun.",
+    "arInfoUrl": "https://en.wikipedia.org/wiki/Mercury_(planet)",
+    "funFacts": [
+      { "label": "Closest to the Sun", "text": "Mercury is the planet nearest the Sun, racing all the way around it in just 88 days." },
+      { "label": "Hot and cold", "text": "Days on Mercury are scorching hot and nights are freezing cold, because it has almost no air to hold the heat." },
+      { "label": "Smallest planet", "text": "Mercury is the smallest planet \u2014 only a little bigger than our Moon." }
+    ]
   },
   {
     "id": "venus",
     "name": "Venus",
     "subtitle": "The hottest planet",
-    "blurb": "Similar in size to Earth but wrapped in a thick carbon-dioxide atmosphere, Venus is the hottest planet, with surface temperatures around 465 °C.",
-    "arInfoUrl": "https://en.wikipedia.org/wiki/Venus"
+    "blurb": "A rocky planet about the same size as Earth, wrapped in thick clouds.",
+    "arInfoUrl": "https://en.wikipedia.org/wiki/Venus",
+    "funFacts": [
+      { "label": "The hottest planet", "text": "Venus is the hottest planet of all, even hotter than Mercury, because thick clouds trap the heat like a blanket." },
+      { "label": "Spins backwards", "text": "Venus spins the opposite way to most planets, so there the Sun would rise in the west!" },
+      { "label": "Earth's twin", "text": "Venus is almost the same size as Earth, which is why it is sometimes called Earth's twin." }
+    ]
   },
   {
     "id": "earth",
     "name": "Earth",
     "subtitle": "Our home planet",
-    "blurb": "Our home planet — the only known world with liquid water on its surface and life, orbited by a single large Moon.",
-    "arInfoUrl": "https://en.wikipedia.org/wiki/Earth"
+    "blurb": "The only world we know of with oceans of water and living things.",
+    "arInfoUrl": "https://en.wikipedia.org/wiki/Earth",
+    "funFacts": [
+      { "label": "Our home", "text": "Earth is the only planet we know of with life \u2014 and the only one with oceans of liquid water on its surface." },
+      { "label": "Just right", "text": "Earth sits at the perfect distance from the Sun: not too hot and not too cold, so water can stay liquid." },
+      { "label": "One Moon", "text": "Earth has one Moon, whose pull makes the ocean tides rise and fall every day." }
+    ]
   },
   {
     "id": "mars",
     "name": "Mars",
     "subtitle": "The Red Planet",
-    "blurb": "The Red Planet, whose rusty colour comes from iron oxide. Mars has the tallest volcano and one of the largest canyons in the solar system.",
-    "arInfoUrl": "https://en.wikipedia.org/wiki/Mars"
+    "blurb": "A cold, dusty desert world that humans hope to visit one day.",
+    "arInfoUrl": "https://en.wikipedia.org/wiki/Mars",
+    "funFacts": [
+      { "label": "The Red Planet", "text": "Mars looks red because its soil is full of rusty iron \u2014 like the rust on an old bike!" },
+      { "label": "Tallest volcano", "text": "Mars has the tallest volcano in the solar system, Olympus Mons \u2014 more than twice as tall as Mount Everest." },
+      { "label": "Two tiny moons", "text": "Mars has two little potato-shaped moons called Phobos and Deimos." }
+    ]
   },
   {
     "id": "jupiter",
     "name": "Jupiter",
-    "subtitle": "The largest planet",
-    "blurb": "The largest planet — a giant ball of gas more than twice as massive as all the other planets combined, famous for its Great Red Spot storm.",
-    "arInfoUrl": "https://en.wikipedia.org/wiki/Jupiter"
+    "subtitle": "The biggest planet",
+    "blurb": "A giant planet made mostly of gas, with a famous swirling storm.",
+    "arInfoUrl": "https://en.wikipedia.org/wiki/Jupiter",
+    "funFacts": [
+      { "label": "The biggest planet", "text": "Jupiter is the largest planet \u2014 more than 1,300 Earths could fit inside it!" },
+      { "label": "A giant storm", "text": "Jupiter's Great Red Spot is a storm bigger than the whole Earth that has been spinning for hundreds of years." },
+      { "label": "Lots of moons", "text": "Jupiter has dozens of moons. The four biggest were first spotted by Galileo over 400 years ago." }
+    ]
   },
   {
     "id": "saturn",
     "name": "Saturn",
-    "subtitle": "The ringed gas giant",
-    "blurb": "The ringed gas giant, circled by bright bands of icy particles and dozens of moons. It is the least dense planet — it would float in water.",
-    "arInfoUrl": "https://en.wikipedia.org/wiki/Saturn"
+    "subtitle": "The ringed planet",
+    "blurb": "A gas giant famous for its bright, beautiful rings.",
+    "arInfoUrl": "https://en.wikipedia.org/wiki/Saturn",
+    "funFacts": [
+      { "label": "Beautiful rings", "text": "Saturn's rings are made of billions of pieces of ice and rock, from tiny grains to huge boulders." },
+      { "label": "It could float", "text": "Saturn is so light for its size that, with a big enough bathtub, it would float in water!" },
+      { "label": "Windy world", "text": "Winds on Saturn can blow many times faster than the strongest hurricanes on Earth." }
+    ]
   },
   {
     "id": "uranus",
     "name": "Uranus",
-    "subtitle": "The sideways ice giant",
-    "blurb": "An ice giant that rotates on its side, giving it extreme seasons. Its blue-green colour comes from methane in the atmosphere.",
-    "arInfoUrl": "https://en.wikipedia.org/wiki/Uranus"
+    "subtitle": "The sideways planet",
+    "blurb": "An icy giant with a blue-green colour that spins on its side.",
+    "arInfoUrl": "https://en.wikipedia.org/wiki/Uranus",
+    "funFacts": [
+      { "label": "Rolls on its side", "text": "Uranus is tipped right over, so it rolls around the Sun on its side like a ball." },
+      { "label": "Blue-green colour", "text": "A gas called methane in its air gives Uranus its pretty blue-green colour." },
+      { "label": "Very chilly", "text": "Uranus is one of the coldest planets, with temperatures dropping below -200\u00b0C." }
+    ]
   },
   {
     "id": "neptune",
     "name": "Neptune",
     "subtitle": "The farthest planet",
-    "blurb": "The most distant planet, a cold, windy ice giant with the fastest winds in the solar system, exceeding 2,000 km/h.",
-    "arInfoUrl": "https://en.wikipedia.org/wiki/Neptune"
+    "blurb": "The most distant planet, a deep-blue, windy ice giant.",
+    "arInfoUrl": "https://en.wikipedia.org/wiki/Neptune",
+    "funFacts": [
+      { "label": "The windiest planet", "text": "Neptune has the fastest winds in the solar system \u2014 faster than 2,000 km/h!" },
+      { "label": "Farthest planet", "text": "Neptune is the most distant planet, so far away that sunlight there is very dim." },
+      { "label": "Deep blue", "text": "Neptune's deep blue colour also comes from methane gas in its atmosphere." }
+    ]
   }
 ]

@@ -1,79 +1,61 @@
 import './style.css';
 
 const MODELS_URL = '/models.json';
+const HOME_ID = 'solar-system';
 
-/**
- * Optional model-to-model hotspots.
- *
- * When you open a model whose id is a key in this object, a tappable marker is
- * placed on it; tapping switches the viewer to the `target` model.
- *
- *   position : where the marker sits, in the model's OWN coordinate space
- *              (metres). Most solar-system models put the Sun at the centre,
- *              so "0m 0m 0m" is the default — nudge these numbers if the marker
- *              doesn't land on the Sun.
- *   normal   : surface normal the marker faces (used by model-viewer for
- *              occlusion); "0m 1m 0m" (up) is a safe default.
- *
- * The target model just needs a /public/models/<id>/ folder to exist — it does
- * not have to be listed in models.json.
- */
-const MODEL_HOTSPOTS = {
-  'solar-system': {
-    target: 'sun',
-    label: 'Enter the Sun',
-    position: '0m 0m 0m',
-    normal: '0m 1m 0m',
-  },
-};
+// Tappable markers placed on each body in the (static) solar-system model.
+// Positions are in the model's own coordinate space, measured from the asset.
+// Tapping one opens that body's standalone page.
+const SOLAR_HOTSPOTS = [
+  { target: 'sun', position: '-0.513m 0.012m 0.668m' },
+  { target: 'mercury', position: '-0.052m -0.024m 0.721m' },
+  { target: 'venus', position: '0.009m -0.024m 0.707m' },
+  { target: 'earth', position: '0.088m -0.020m 0.692m' },
+  { target: 'mars', position: '0.171m -0.022m 0.669m' },
+  { target: 'jupiter', position: '0.335m -0.023m 0.666m' },
+  { target: 'saturn', position: '0.650m -0.025m 0.673m' },
+  { target: 'uranus', position: '0.923m -0.029m 0.711m' },
+  { target: 'neptune', position: '1.056m -0.026m 0.725m' },
+];
 
 // ---- element references ----
-const galleryView = document.getElementById('gallery-view');
-const carousel = document.getElementById('carousel');
-const track = document.getElementById('track');
-const dots = document.getElementById('dots');
-const viewerView = document.getElementById('viewer-view');
 const viewer = document.getElementById('viewer');
+const viewerView = document.getElementById('viewer-view');
 const viewerTitle = document.getElementById('viewer-title');
 const backButton = document.getElementById('back-button');
 const prevButton = document.getElementById('prev-button');
 const nextButton = document.getElementById('next-button');
-const bodyDock = document.getElementById('body-dock');
 const infoButton = document.getElementById('info-button');
+const factsBar = document.getElementById('facts-bar');
+const hint = document.getElementById('hint');
 const infoSheet = document.getElementById('info-sheet');
 const infoTitle = document.getElementById('info-title');
 const infoBody = document.getElementById('info-body');
 
 let manifest = [];
 let currentModel = null;
-const historyStack = [];
 
 // ---- helpers ----
 
-// Derive the three file paths from a model id, by convention.
 function pathsFor(id) {
   const base = `/models/${id}`;
-  return {
-    glb: `${base}/model.glb`,
-    usdz: `${base}/model.usdz`,
-    poster: `${base}/poster.webp`,
-  };
+  return { glb: `${base}/model.glb`, usdz: `${base}/model.usdz`, poster: `${base}/poster.webp` };
 }
 
-// Turn an id like "solar-system" into "Solar System" for a fallback label.
 function prettify(id) {
-  return id
-    .replace(/[-_]+/g, ' ')
-    .replace(/\b\w/g, (c) => c.toUpperCase());
+  return id.replace(/[-_]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-// Look up a model in the manifest, falling back to a derived entry so that a
-// hotspot can target a model that isn't listed in the gallery.
 function getModel(id) {
   return manifest.find((m) => m.id === id) || { id, name: prettify(id) };
 }
 
-// ---- gallery ----
+const isHome = (model) => model?.id === HOME_ID;
+
+// Bodies you can step through with swipe / arrows (everything except the home).
+const planetOrder = () => manifest.filter((m) => m.id !== HOME_ID);
+
+// ---- boot ----
 
 async function loadManifest() {
   try {
@@ -86,94 +68,11 @@ async function loadManifest() {
     console.error('Could not load models.json:', err);
     manifest = [];
   }
-  renderGallery();
+  goHome();
 }
 
-function renderGallery() {
-  track.replaceChildren();
-  dots.replaceChildren();
+// ---- iOS Quick Look banner ----
 
-  if (manifest.length === 0) {
-    const empty = document.createElement('p');
-    empty.className = 'empty';
-    empty.textContent =
-      'No models yet. Add a folder to /public/models/ and list it in models.json.';
-    track.appendChild(empty);
-    return;
-  }
-
-  manifest.forEach(() => {
-    const dot = document.createElement('span');
-    dot.className = 'dot';
-    dots.appendChild(dot);
-  });
-  manifest.forEach((model) => track.appendChild(createCard(model)));
-  observeCarousel();
-}
-
-// Highlight the dot for whichever card is centered in the viewport.
-function observeCarousel() {
-  const cards = [...track.children];
-  const dotEls = [...dots.children];
-  if (!cards.length || !window.IntersectionObserver) {
-    dotEls[0]?.classList.add('dot--active');
-    return;
-  }
-  const io = new IntersectionObserver(
-    (entries) => {
-      for (const e of entries) {
-        if (!e.isIntersecting) continue;
-        const idx = cards.indexOf(e.target);
-        dotEls.forEach((d, i) => d.classList.toggle('dot--active', i === idx));
-      }
-    },
-    { root: carousel, threshold: 0.6 },
-  );
-  cards.forEach((c) => io.observe(c));
-}
-
-function createCard(model) {
-  const { poster } = pathsFor(model.id);
-
-  const card = document.createElement('button');
-  card.className = 'card';
-  card.type = 'button';
-  card.setAttribute('aria-label', `View ${model.name} in 3D and AR`);
-
-  const img = document.createElement('img');
-  img.className = 'card-img';
-  img.loading = 'lazy';
-  img.alt = '';
-  img.src = poster;
-  img.addEventListener('error', () => {
-    img.remove();
-    card.classList.add('card--noimg');
-    card.dataset.initial = (model.name?.[0] ?? '?').toUpperCase();
-  });
-
-  const overlay = document.createElement('div');
-  overlay.className = 'card-overlay';
-  const name = document.createElement('span');
-  name.className = 'card-name';
-  name.textContent = model.name;
-  overlay.appendChild(name);
-  if (model.subtitle) {
-    const sub = document.createElement('span');
-    sub.className = 'card-sub';
-    sub.textContent = model.subtitle;
-    overlay.appendChild(sub);
-  }
-
-  card.append(img, overlay);
-  card.addEventListener('click', () => openModel(model));
-  return card;
-}
-
-// ---- viewer ----
-
-// Build the iOS Quick Look URL, adding a native info banner (title + subtitle
-// + "Learn more" button) when the model has info. These #params are read by
-// Quick Look on iOS; see Apple's AR Quick Look banner docs.
 function quickLookSrc(usdz, model) {
   if (!model.subtitle && !model.blurb) return usdz;
   const parts = [`checkoutTitle=${encodeURIComponent(model.name)}`];
@@ -183,66 +82,50 @@ function quickLookSrc(usdz, model) {
   return `${usdz}#${parts.join('&')}`;
 }
 
+// ---- applying a model ----
+
 function applyModel(model) {
   currentModel = model;
+  const home = isHome(model);
   const { glb, usdz, poster } = pathsFor(model.id);
+
   viewer.setAttribute('src', glb);
-  viewer.setAttribute('ios-src', quickLookSrc(usdz, model));
   viewer.setAttribute('poster', poster);
   viewer.setAttribute('alt', `3D model of ${model.name}`);
-  viewerTitle.textContent = model.name;
+  viewerTitle.textContent = home ? '' : model.name;
 
-  // In-page info panel (works on every platform, unlike AR-session overlays)
-  const hasInfo = Boolean(model.blurb || model.subtitle);
-  infoButton.hidden = !hasInfo;
-  infoTitle.textContent = model.name;
-  infoBody.textContent = model.blurb || model.subtitle || '';
+  // AR + Quick Look only on the planet pages, not the home solar system.
+  if (home) {
+    viewer.removeAttribute('ar');
+    viewer.removeAttribute('ios-src');
+  } else {
+    viewer.setAttribute('ar', '');
+    viewer.setAttribute('ios-src', quickLookSrc(usdz, model));
+  }
+
+  // Camera: give the flat solar system a gentle top-down angle and let kids
+  // zoom right in to the small inner planets; planets reset to defaults.
+  if (home) {
+    viewer.setAttribute('camera-orbit', '0deg 68deg auto');
+    viewer.setAttribute('min-camera-orbit', 'auto auto 12%');
+  } else {
+    viewer.setAttribute('camera-orbit', '0deg 75deg auto');
+    viewer.removeAttribute('min-camera-orbit');
+  }
+
+  // Chrome: home is the hub (markers, no back/AR/facts); planets get the rest.
+  backButton.hidden = home;
+  prevButton.hidden = home;
+  nextButton.hidden = home;
+  hint.hidden = !home;
+  infoButton.hidden = home || !model.blurb;
+
   closeInfo();
-
   setupHotspots(model);
-  updateBodyDock(model);
+  renderFacts(model);
 }
 
-// The Solar System links out to every other model — like tapping the Sun, but
-// for all bodies. (On-body hotspots can't track the planets while they orbit,
-// so this dock is the reliable equivalent.) Built once, shown only here.
-function updateBodyDock(model) {
-  if (model.id !== 'solar-system' || manifest.length < 2) {
-    bodyDock.hidden = true;
-    return;
-  }
-  if (bodyDock.dataset.built !== '1') {
-    bodyDock.replaceChildren();
-    for (const m of manifest) {
-      if (m.id === 'solar-system') continue;
-      const { poster } = pathsFor(m.id);
-      const chip = document.createElement('button');
-      chip.className = 'dock-chip';
-      chip.type = 'button';
-      chip.setAttribute('aria-label', `Open ${m.name}`);
-
-      const img = document.createElement('img');
-      img.loading = 'lazy';
-      img.alt = '';
-      img.src = poster;
-      img.addEventListener('error', () => {
-        img.remove();
-        chip.classList.add('dock-chip--noimg');
-        chip.dataset.initial = (m.name?.[0] ?? '?').toUpperCase();
-      });
-
-      const cap = document.createElement('span');
-      cap.className = 'dock-cap';
-      cap.textContent = m.name;
-
-      chip.append(img, cap);
-      chip.addEventListener('click', () => switchToModel(getModel(m.id)));
-      bodyDock.appendChild(chip);
-    }
-    bodyDock.dataset.built = '1';
-  }
-  bodyDock.hidden = false;
-}
+// ---- hotspots (home only) ----
 
 function clearHotspots() {
   viewer.querySelectorAll('[slot^="hotspot-"]').forEach((el) => el.remove());
@@ -250,91 +133,72 @@ function clearHotspots() {
 
 function setupHotspots(model) {
   clearHotspots();
+  if (!isHome(model)) return;
 
-  const cfg = MODEL_HOTSPOTS[model.id];
-  if (!cfg) return;
+  for (const cfg of SOLAR_HOTSPOTS) {
+    const body = getModel(cfg.target);
+    const hotspot = document.createElement('button');
+    hotspot.className = 'hotspot';
+    hotspot.type = 'button';
+    hotspot.slot = `hotspot-${cfg.target}`;
+    hotspot.dataset.position = cfg.position;
+    hotspot.setAttribute('aria-label', `Open ${body.name}`);
 
-  const hotspot = document.createElement('button');
-  hotspot.className = 'hotspot';
-  hotspot.type = 'button';
-  hotspot.slot = `hotspot-${cfg.target}`;
-  hotspot.dataset.position = cfg.position;
-  if (cfg.normal) hotspot.dataset.normal = cfg.normal;
-  hotspot.setAttribute('aria-label', cfg.label);
+    const dot = document.createElement('span');
+    dot.className = 'hotspot-dot';
+    dot.setAttribute('aria-hidden', 'true');
+    hotspot.appendChild(dot);
 
-  const dot = document.createElement('span');
-  dot.className = 'hotspot-dot';
-  dot.setAttribute('aria-hidden', 'true');
-
-  const label = document.createElement('span');
-  label.className = 'hotspot-label';
-  label.textContent = cfg.label;
-
-  hotspot.append(dot, label);
-  hotspot.addEventListener('click', () => switchToModel(getModel(cfg.target)));
-  viewer.appendChild(hotspot);
-}
-
-function showViewer() {
-  galleryView.hidden = true;
-  viewerView.hidden = false;
-}
-
-function showGallery() {
-  viewerView.hidden = true;
-  galleryView.hidden = false;
-  // Release the current model from memory and reset navigation.
-  clearHotspots();
-  closeInfo();
-  bodyDock.hidden = true;
-  viewer.removeAttribute('src');
-  viewer.removeAttribute('ios-src');
-  viewer.removeAttribute('poster');
-  currentModel = null;
-  historyStack.length = 0;
-}
-
-// Open a model from the gallery (starts a fresh navigation trail).
-function openModel(model) {
-  historyStack.length = 0;
-  historyStack.push(model);
-  applyModel(model);
-  showViewer();
-}
-
-// Switch to another model from within the viewer (e.g. tapping the Sun).
-function switchToModel(model) {
-  historyStack.push(model);
-  applyModel(model);
-}
-
-// Back steps through the trail, then returns to the gallery.
-function goBack() {
-  historyStack.pop();
-  if (historyStack.length > 0) {
-    applyModel(historyStack[historyStack.length - 1]);
-  } else {
-    showGallery();
+    hotspot.addEventListener('click', () => openPlanet(body));
+    viewer.appendChild(hotspot);
   }
 }
 
-// Lateral move to the previous/next model in the carousel order (wraps around).
-// This is a sideways step, not a drill-down, so it replaces the current entry
-// in the trail rather than growing it — Back still returns where you came from.
-function navigateBy(delta) {
-  if (!currentModel || manifest.length < 2) return;
-  let i = manifest.findIndex((m) => m.id === currentModel.id);
-  if (i === -1) i = 0;
-  const next = manifest[(i + delta + manifest.length) % manifest.length];
-  if (next.id === currentModel.id) return;
-  if (historyStack.length) historyStack[historyStack.length - 1] = next;
-  else historyStack.push(next);
-  applyModel(next);
+// ---- fun facts (planet pages) ----
+
+function renderFacts(model) {
+  factsBar.replaceChildren();
+  const facts = Array.isArray(model.funFacts) ? model.funFacts : [];
+  if (isHome(model) || facts.length === 0) {
+    factsBar.hidden = true;
+    return;
+  }
+  for (const fact of facts) {
+    const chip = document.createElement('button');
+    chip.className = 'fact-chip';
+    chip.type = 'button';
+    chip.textContent = fact.label;
+    chip.addEventListener('click', () => openInfo(fact.label, fact.text));
+    factsBar.appendChild(chip);
+  }
+  factsBar.hidden = false;
 }
 
-// ---- info panel ----
+// ---- navigation ----
 
-function openInfo() {
+function openPlanet(model) {
+  applyModel(model);
+}
+
+function goHome() {
+  applyModel(getModel(HOME_ID));
+}
+
+// Step through the planets (wraps). Used by arrows, keys and swipe.
+function navigateBy(delta) {
+  if (!currentModel || isHome(currentModel)) return;
+  const order = planetOrder();
+  if (order.length < 2) return;
+  let i = order.findIndex((m) => m.id === currentModel.id);
+  if (i === -1) i = 0;
+  applyModel(order[(i + delta + order.length) % order.length]);
+}
+
+// ---- info floating window ----
+
+function openInfo(title, body) {
+  infoTitle.textContent = title;
+  infoBody.textContent = body;
   infoSheet.hidden = false;
 }
 
@@ -342,40 +206,41 @@ function closeInfo() {
   infoSheet.hidden = true;
 }
 
-infoButton.addEventListener('click', openInfo);
+// ---- wiring ----
+
+infoButton.addEventListener('click', () => {
+  if (currentModel) openInfo(currentModel.name, currentModel.blurb || currentModel.subtitle || '');
+});
 infoSheet.addEventListener('click', (e) => {
   if (e.target.hasAttribute('data-close')) closeInfo();
 });
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && !infoSheet.hidden) closeInfo();
-});
-
-// iOS Quick Look fires this when the banner's "Learn more" button is tapped.
-viewer.addEventListener('quick-look-button-tapped', () => {
-  if (currentModel?.arInfoUrl) window.open(currentModel.arInfoUrl, '_blank', 'noopener');
-});
-
-backButton.addEventListener('click', goBack);
+backButton.addEventListener('click', goHome);
 prevButton.addEventListener('click', () => navigateBy(-1));
 nextButton.addEventListener('click', () => navigateBy(1));
 
-// Arrow keys (desktop) — only while the viewer is open and info is closed.
 document.addEventListener('keydown', (e) => {
-  if (viewerView.hidden || !infoSheet.hidden) return;
+  if (e.key === 'Escape' && !infoSheet.hidden) {
+    closeInfo();
+    return;
+  }
+  if (!infoSheet.hidden) return;
   if (e.key === 'ArrowRight') navigateBy(1);
   else if (e.key === 'ArrowLeft') navigateBy(-1);
 });
 
-// Swipe across the model to change planets. Listened in the capture phase so we
-// measure the gesture before <model-viewer> consumes it for camera rotation;
-// we don't preventDefault, so normal drag-to-rotate still works. A switch fires
-// only on a clearly horizontal flick that doesn't start on a control.
+// Quick Look "Learn more" (iOS).
+viewer.addEventListener('quick-look-button-tapped', () => {
+  if (currentModel?.arInfoUrl) window.open(currentModel.arInfoUrl, '_blank', 'noopener');
+});
+
+// Swipe across a planet page to move to the next/previous planet. Captured
+// before <model-viewer> so we can measure it without blocking drag-to-rotate.
 let swipe = null;
 viewerView.addEventListener(
   'touchstart',
   (e) => {
-    if (!infoSheet.hidden || e.touches.length !== 1 ||
-        e.target.closest('#body-dock, button')) {
+    if (!currentModel || isHome(currentModel) || !infoSheet.hidden ||
+        e.touches.length !== 1 || e.target.closest('button')) {
       swipe = null;
       return;
     }

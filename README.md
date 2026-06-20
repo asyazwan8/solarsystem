@@ -1,20 +1,21 @@
 # Solar System AR
 
-A minimal, cross-platform AR web app for viewing 3D models on iPhone and Android — built with [Vite](https://vitejs.dev/) and Google's [`<model-viewer>`](https://modelviewer.dev/). No framework, no backend, no API keys.
+A minimal, cross-platform AR web app for kids to explore the solar system on iPhone and Android — built with [Vite](https://vitejs.dev/) and Google's [`<model-viewer>`](https://modelviewer.dev/). No framework, no backend, no API keys.
 
-Models are shown in a **swipeable card carousel**; tap a card to open a full-screen 3D viewer. In the viewer you can:
+The app opens **straight into the 3D solar system** — there is no gallery or card screen. From there:
 
-- **Swipe left/right** (or use the on-screen arrows / keyboard arrows) to move between models.
-- **Tap ⓘ** to bring up an **info layer** that floats over the model (the model stays visible behind it).
-- **View in AR** via the orange button (Quick Look on iOS, Scene Viewer / WebXR on Android).
+- **Zoom and rotate** the whole solar system; pinch to get close to the small inner planets.
+- **Tap a planet** (each has a glowing marker) to open its own page.
+- On a **planet page** you can rotate/zoom it, **View it in AR**, and read **kid-friendly fun facts** along the bottom — tap a fact to pop it up in a **floating window**.
+- **Back** returns you to the solar system. The solar system is the hub that connects to every body.
 
-The **Solar System** is a hub: a marker on the Sun opens the standalone Sun model, and a **dock of every body** lets you jump straight to any planet. (The dock is used instead of a marker on each planet because the planets orbit, so an on-body marker would drift off them as they move.)
+Tappable planet markers are possible because the home model is **static** (the planets don't orbit), so each marker stays put on its planet. Marker positions were measured from the model and live in `SOLAR_HOTSPOTS` in `main.js`.
 
 ## Tech stack
 
 - Vite (vanilla JS / HTML / CSS)
 - `<model-viewer>` web component, loaded from a CDN (jsDelivr, pinned to `4.1.0`)
-- A small amount of vanilla JS to build the gallery and switch models
+- A small amount of vanilla JS for navigation, hotspots, fun facts, and the info window
 
 > **Why jsDelivr and not Google's CDN?** Google's hosted libraries only serve
 > `<model-viewer>` up to `3.0.0`. jsDelivr serves the current release, which has
@@ -79,97 +80,79 @@ Then add one entry to `public/models.json`:
 ```
 
 That's it. `main.js` derives all three file paths from the id by convention, so
-you never touch the code to add a model — the gallery rebuilds itself from
-`models.json` on load.
+you never touch the code to add a model — the app reads `models.json` on load.
 
 **File notes**
 
-- `model.glb` — required for Android and WebXR.
+- `model.glb` — required for Android, WebXR, and the in-page 3D view.
 - `model.usdz` — required for iOS AR. If you only have a `.glb`, a real `.usdz`
   can be generated from it (Apple's [Reality Converter](https://developer.apple.com/augmented-reality/tools/)
-  on a Mac, or programmatically).
-- `poster.webp` — optional but recommended. If it fails to load, the card falls
-  back to the model's first initial.
+  on a Mac, or programmatically). The home solar-system model has no `.usdz`
+  because it isn't shown in AR (only the individual planets are).
+- `poster.webp` — optional but recommended; shown while the model loads.
 
 ## Included models
 
-Ten models are included, derived from your Sketchfab `.glb` files (check/respect
-each model's Sketchfab license + attribution terms): the full **Solar System**,
-the **Sun**, and all eight planets — **Mercury, Venus, Earth, Mars, Jupiter,
-Saturn, Uranus, Neptune**. Carousel order follows the order in `models.json`.
+Ten models are included (check/respect each source model's license + attribution
+terms): the **Solar System** (the static Paint 3D model you supplied, used as the
+home screen), the **Sun**, and all eight planets — **Mercury, Venus, Earth, Mars,
+Jupiter, Saturn, Uranus, Neptune**. The planet order (used by swipe / arrows on
+the planet pages) follows the order in `models.json`.
 
 **What was done to them**
 
 - **Compressed the `.glb`** with Draco (geometry) and textures capped at
-  1024 px, no mesh simplification. Textures are kept in their original
-  **JPEG/PNG** format (not WebP) so they decode reliably on every device — WebP
-  textures were the cause of models occasionally rendering gray/untextured.
-  Animations are kept where present (the solar system orbits; the sun pulses).
-- **Generated a real `.usdz`** for each from the actual geometry + textures
-  (`UsdGeom.Mesh` + `UsdPreviewSurface`, packaged for ARKit), since you only
-  supplied `.glb`. All ten pass `UsdUtils.ComplianceChecker(arkit=True)` with
-  zero errors.
-- **Rendered `poster.webp` thumbnails** for the cards (offscreen render of each
-  model on the app's dark background).
-- **Normalized AR size.** The source models are authored at wildly different
-  scales (Mercury is ~2 units across, Uranus ~200,000), so a literal "10% of
-  each model's own size" would make some planets kilometres wide in AR and
-  others centimetres. Instead, each model's AR assets are scaled so it places at
-  a consistent real-world size — **single bodies ≈ 0.4 m, the whole solar system
-  ≈ 1.5 m** — and `<model-viewer>` uses `ar-scale="fixed"` to lock it. To change
-  a target size, re-run the asset pipeline with a different value (see
-  `glb_to_usdz.py` / the scale helpers).
+  1024 px (512 px for the home solar-system, which is mostly seen zoomed out),
+  no mesh simplification. Textures are kept in their original **JPEG/PNG** format
+  (not WebP) so they decode reliably on every device — WebP textures were the
+  cause of models occasionally rendering gray/untextured.
+- **Generated a real `.usdz`** for each planet from the actual geometry +
+  textures (`UsdGeom.Mesh` + `UsdPreviewSurface`, packaged for ARKit). They pass
+  `UsdUtils.ComplianceChecker(arkit=True)` with zero errors. (The home solar
+  system has no `.usdz` — it isn't an AR target.)
+- **Rendered `poster.webp`** for each model (offscreen render on the dark
+  background), shown while the model streams in.
+- **Normalized AR size.** The planet sources are authored at wildly different
+  scales, so each planet's AR assets are scaled to place at a consistent
+  real-world size (**≈ 0.4 m**) and `<model-viewer>` uses `ar-scale="fixed"` to
+  lock it. The home solar-system model is scaled to a friendly ~2-unit size for
+  on-screen exploration (no AR), and the planet hotspot positions are measured in
+  that same scaled space.
 
-**Info, two ways**
+**Info & fun facts**
 
-- **In-page info panel** — the ⓘ button (top-right of the viewer) opens a bottom
-  sheet with the model's name and description. This works on every platform and
-  has no size or formatting limits, so it's the richest place for info.
-- **iOS AR banner** — in Quick Look AR, a native banner shows the model's title,
-  subtitle, and a "Learn more" button (wired to the model's Sketchfab page). It's
-  built from each model's `subtitle` / `arInfoUrl` in `models.json` and appended
-  to the `.usdz` URL automatically. Android Scene Viewer only shows a minimal
-  title; a fully custom in-AR overlay would require WebXR (Android only).
+- **Fun facts (planet pages)** — each planet page shows a row of kid-friendly
+  fun-fact chips along the bottom. Tapping a chip opens a **floating window** with
+  the full fact, layered over the model (the model stays visible behind it). Facts
+  live in each model's `funFacts` array in `models.json` (`{ "label", "text" }`).
+- **ⓘ button** — opens the same floating window with the planet's name and
+  description (`blurb`).
+- **iOS AR banner** — in Quick Look AR, a native banner shows the planet's title,
+  subtitle, and a "Learn more" button (wired to `arInfoUrl`). It's built from each
+  model's `subtitle` / `arInfoUrl` and appended to the `.usdz` URL automatically.
+  Android Scene Viewer shows a minimal title only.
 
-Add `subtitle`, `blurb`, and `arInfoUrl` to a model in `models.json` to give it
-info; omit them and the ⓘ button simply doesn't appear.
+**Animation:** the home solar-system model is **static** — that's deliberate, so
+the planet markers stay pinned to their planets. `<model-viewer>` keeps `autoplay`
+on, so any planet model that has its own spin animation still plays on its page.
 
-**Animation:** both models are animated (the solar system orbits over 20 s; the
-sun pulses over 33 s). The `<model-viewer>` has `autoplay`, so the in-page 3D
-view and Android Scene Viewer AR play the animation. The `.usdz` is a static
-snapshot of the rest pose — iOS Quick Look AR shows the posed model, not the
-motion. (Animated USDZ is a larger lift; say the word if you want it.)
+## Tapping the planets
 
-**Posters:** `poster.webp` thumbnails are included for both models (rendered
-offscreen). To refresh or add one, drop a new `poster.webp` into the model
-folder.
-
-(You can remove `sun` from `models.json` if you only want it reachable by tapping
-the Sun — the tap-to-switch still works either way, since `public/models/sun/`
-exists.)
-
-## The "tap the Sun" interaction
-
-Configured in `main.js`, in the `MODEL_HOTSPOTS` object:
+The home solar-system model is static, so each planet gets a fixed marker.
+These are configured in `main.js`, in the `SOLAR_HOTSPOTS` array:
 
 ```js
-const MODEL_HOTSPOTS = {
-  "solar-system": {
-    target: "sun",          // model id to switch to when tapped
-    label: "Enter the Sun",
-    position: "0m 0m 0m",   // where the Sun sits in the solar-system model
-    normal: "0m 1m 0m",
-  },
-};
+const SOLAR_HOTSPOTS = [
+  { target: "earth", position: "0.088m -0.020m 0.692m" }, // model id + 3D spot
+  // ...one entry per body
+];
 ```
 
-- `position` is in the model's **own** coordinate space (metres). Most
-  solar-system models put the Sun at the centre, so `0 0 0` is the default. If
-  the marker doesn't land on the Sun, nudge these numbers.
-- To link any other model to another, add another entry keyed by the source
-  model's id.
-- **Back** from the Sun returns you to the Solar System; **Back** again returns
-  to the gallery.
+- `target` is the model id to open when the marker is tapped.
+- `position` is in the home model's **own** coordinate space (metres), measured
+  from the asset. If a marker doesn't sit exactly on its planet, nudge these
+  numbers (or tell me which one and I'll re-measure).
+- **Back** from any planet returns to the solar system.
 
 ## Deployment (GitHub → Vercel)
 
@@ -185,6 +168,8 @@ const MODEL_HOTSPOTS = {
 ## Handling large models
 
 If a `.glb` is heavy, compress it with [`gltf-transform`](https://gltf-transform.dev/)
-(Draco geometry compression + WebP textures) before committing, rather than
-reaching for Git LFS. As a rule of thumb, keep individual files under ~40–50 MB
-to stay comfortable on GitHub.
+(Draco geometry compression + resizing textures to 1024 px or less) before
+committing, rather than reaching for Git LFS. Keep textures as **JPEG/PNG** — the
+WebP texture path was dropped because it decoded unreliably on some devices and
+left models gray. As a rule of thumb, keep individual files under ~40–50 MB to
+stay comfortable on GitHub.

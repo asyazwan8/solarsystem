@@ -27,58 +27,46 @@
   </head>
 
   <body>
-    <!-- ===== Gallery view ===== -->
-    <main id="gallery-view">
-      <header class="app-header">
-        <h1>Solar System AR</h1>
-        <p class="subtitle">Swipe through, tap to explore in 3D &amp; AR</p>
-      </header>
-      <div id="carousel" class="carousel">
-        <div id="track" class="carousel-track"></div>
-      </div>
-      <div id="dots" class="carousel-dots" aria-hidden="true"></div>
-    </main>
-
-    <!-- ===== Single-model viewer ===== -->
-    <section id="viewer-view" hidden>
-      <button id="back-button" type="button">
+    <!-- The app opens straight into the solar system. Tap a planet to open it. -->
+    <section id="viewer-view">
+      <button id="back-button" type="button" hidden>
         <span aria-hidden="true">&lsaquo;</span> Back
       </button>
-      <button id="info-button" type="button" aria-label="About this model">
+      <button id="info-button" type="button" aria-label="About this planet" hidden>
         <span aria-hidden="true">i</span>
       </button>
       <h2 id="viewer-title" class="viewer-title"></h2>
 
       <model-viewer
         id="viewer"
-        ar
         ar-modes="webxr scene-viewer quick-look"
         ar-placement="floor"
         ar-scale="fixed"
         camera-controls
-        auto-rotate
         autoplay
-        shadow-intensity="1"
+        interaction-prompt="none"
+        shadow-intensity="0.4"
+        exposure="1"
         alt=""
       >
-        <!-- model-viewer's default AR button is icon-only, so we supply our
-             own labelled button in the documented ar-button slot. -->
         <button id="ar-button" slot="ar-button" type="button">View in AR</button>
       </model-viewer>
 
-      <!-- Lateral navigation: swipe across the model, or tap these arrows -->
-      <button id="prev-button" class="nav-arrow" type="button" aria-label="Previous model">
+      <!-- Tap a planet hint (home only) -->
+      <p id="hint" class="hint" hidden>Tap a planet to explore it &middot; pinch to zoom</p>
+
+      <!-- Move between planets: swipe across the model, or tap these arrows -->
+      <button id="prev-button" class="nav-arrow" type="button" aria-label="Previous planet" hidden>
         <span aria-hidden="true">&lsaquo;</span>
       </button>
-      <button id="next-button" class="nav-arrow nav-arrow--right" type="button" aria-label="Next model">
+      <button id="next-button" class="nav-arrow nav-arrow--right" type="button" aria-label="Next planet" hidden>
         <span aria-hidden="true">&rsaquo;</span>
       </button>
 
-      <!-- Solar-system hub: jump straight to any body (shown only for the
-           Solar System, since it links out to every model like the Sun does) -->
-      <div id="body-dock" class="body-dock" hidden></div>
+      <!-- Kid-friendly fun facts (planet pages); tap one for the floating window -->
+      <div id="facts-bar" class="facts-bar" hidden></div>
 
-      <!-- Info layer (floats over the model; the model stays visible behind) -->
+      <!-- Floating info window (sits on top of the model) -->
       <div id="info-sheet" class="info-sheet" hidden>
         <div class="info-backdrop" data-close></div>
         <div class="info-card" role="dialog" aria-modal="true" aria-labelledby="info-title">
