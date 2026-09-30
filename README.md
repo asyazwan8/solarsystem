@@ -8,6 +8,9 @@ The app opens **straight into the 3D solar system** — there is no gallery or c
 - **Tap a planet** (each has a glowing marker) to open its own page.
 - On a **planet page** you can rotate/zoom it, **View it in AR**, and read **kid-friendly fun facts** along the bottom — tap a fact to pop it up in a **floating window**.
 - **Back** returns you to the solar system. The solar system is the hub that connects to every body.
+- **✋ Hand mode** (top-right) turns on the phone's back camera and lets kids
+  control everything with hand gestures, with the planets floating over the live
+  camera view. See [Hand mode](#hand-mode).
 
 Tappable planet markers are possible because the home model is **static** (the planets don't orbit), so each marker stays put on its planet. Marker positions were measured from the model and live in `SOLAR_HOTSPOTS` in `main.js`.
 
@@ -16,6 +19,9 @@ Tappable planet markers are possible because the home model is **static** (the p
 - Vite (vanilla JS / HTML / CSS)
 - `<model-viewer>` web component, loaded from a CDN (jsDelivr, pinned to `4.1.0`)
 - A small amount of vanilla JS for navigation, hotspots, fun facts, and the info window
+- [MediaPipe](https://ai.google.dev/edge/mediapipe/solutions/vision/gesture_recognizer/web_js)
+  Gesture Recognizer (`@mediapipe/tasks-vision`, npm) for Hand mode, loaded only
+  when Hand mode is switched on
 
 > **Why jsDelivr and not Google's CDN?** Google's hosted libraries only serve
 > `<model-viewer>` up to `3.0.0`. jsDelivr serves the current release, which has
@@ -29,9 +35,13 @@ public/
   models/            <- you add <id>/ subfolders here (empty for now)
     .gitkeep         <- only there to keep the empty folder in git; safe to delete later
   models.json        <- manifest: a plain array of { id, name } (ships as [])
+  mediapipe/
+    gesture_recognizer.task  <- MediaPipe hand model (Hand mode)
 index.html
 style.css
 main.js
+hand-tracking.js     <- Hand mode: camera + MediaPipe loop (lazy-loaded)
+gestures.js          <- Hand mode: turns hand poses into spin/zoom/swipe/tap/back
 vercel.json
 package.json
 .gitignore
@@ -153,6 +163,59 @@ const SOLAR_HOTSPOTS = [
   from the asset. If a marker doesn't sit exactly on its planet, nudge these
   numbers (or tell me which one and I'll re-measure).
 - **Back** from any planet returns to the solar system.
+
+## Hand mode
+
+Tap **✋** (top-right) to control the app with one hand while the other holds
+the phone. The **back camera** fills the screen and the planet floats over it,
+in the middle of the screen. MediaPipe watches the camera and recognises these
+gestures:
+
+| Gesture | What it does |
+|---|---|
+| ✋ Open hand, move slowly | Spin the planet (or the whole solar system) |
+| ✋ Open hand, quick swipe left / right | Next / previous planet |
+| ☝️ Point | Moves the cursor ring; the button it would tap lights up |
+| 🤏 Quick pinch (thumb touches index finger) | Taps what the cursor is on: planet markers, fun facts, Back, arrows, ⓘ, × |
+| 🤏 Pinch and hold, move up / down | Zoom in / out |
+| ✊ Fist, held for a moment | Closes the info window, otherwise goes back to the solar system |
+
+A status pill at the top shows which gesture the camera sees, and a short
+gesture guide appears each time Hand mode starts (tap it to dismiss).
+
+**Hand mode vs. View in AR.** They are separate on purpose. **View in AR** places
+the planet on your real floor or table at a fixed size and lets you walk around
+it. That AR view runs in Apple's Quick Look or Google's Scene Viewer, outside the
+web page, so the page's code (and MediaPipe) can't run there and gestures can't
+work in it. Hand mode is our own in-page camera view: it has gestures and works
+on the solar-system home too, but the planet stays pinned to the screen rather
+than the room. When you tap **View in AR** during Hand mode, the camera is
+handed over to AR first, and Hand mode picks it back up when you return.
+
+**Privacy.** Everything runs on the phone. No video or images leave the device,
+and there is no server. The camera only starts after tapping ✋ and allowing the
+browser's camera prompt. It switches off when Hand mode is turned off or the app
+goes into the background.
+
+**Requirements and notes**
+
+- HTTPS (or `localhost`), like AR. The ✋ button is hidden where the camera
+  can't be used.
+- iOS 16.4+ / a recent Android Chrome. MediaPipe runs on the GPU when it can
+  and falls back to the CPU.
+- First use downloads about 12 MB once: the ~8 MB hand model plus MediaPipe's
+  runtime (~3.5 MB compressed). The browser caches both after that. None of it
+  loads until ✋ is tapped.
+- Works best in decent light with the hand about 20–60 cm from the lens.
+- MediaPipe's WASM runtime is bundled from the npm package by Vite (rather than
+  a CDN), so it always matches the pinned `@mediapipe/tasks-vision` version. To
+  upgrade, bump that version in `package.json`. The hand model in
+  `public/mediapipe/` comes from Google's
+  [model page](https://ai.google.dev/edge/mediapipe/solutions/vision/gesture_recognizer#models)
+  (`gesture_recognizer.task`, float16).
+- Gesture thresholds (pinch distance, swipe speed, hold times) are constants at
+  the top of `gestures.js`. Spin and zoom strength are `HAND_SPIN_*` /
+  `HAND_ZOOM` in `main.js`.
 
 ## Deployment (GitHub → Vercel)
 

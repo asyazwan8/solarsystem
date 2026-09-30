@@ -18,6 +18,25 @@ const SOLAR_HOTSPOTS = [
   { target: 'neptune', position: '1.056m -0.026m 0.725m' },
 ];
 
+// Hand mode tuning: spin (radians per screen-width of hand movement), zoom
+// strength for a pinch-drag, and how forgiving gesture taps are (px).
+const HAND_SPIN_THETA = Math.PI * 1.6;
+const HAND_SPIN_PHI = Math.PI * 1.2;
+const HAND_ZOOM = 2.5;
+const HAND_HIT_SLOP = 24;
+const LEGEND_MS = 6000;
+
+// What the status pill says for each hand pose (see gestures.js).
+const POSE_STATUS = {
+  none: 'Show your hand to the camera',
+  palm: '✋ Spinning',
+  point: '☝️ Aiming · pinch to tap',
+  pinch: '🤏 Pinch',
+  zoom: '🤏 Zooming · up = closer, down = farther',
+  fist: '✊ Hold to go back',
+  other: '☝️ Point to aim · ✋ open hand to spin',
+};
+
 // ---- element references ----
 const viewer = document.getElementById('viewer');
 const viewerView = document.getElementById('viewer-view');
@@ -31,9 +50,26 @@ const hint = document.getElementById('hint');
 const infoSheet = document.getElementById('info-sheet');
 const infoTitle = document.getElementById('info-title');
 const infoBody = document.getElementById('info-body');
+const arButton = document.getElementById('ar-button');
+const handButton = document.getElementById('hand-button');
+const cameraFeed = document.getElementById('camera-feed');
+const gestureCursor = document.getElementById('gesture-cursor');
+const gestureStatus = document.getElementById('gesture-status');
+const gestureLegend = document.getElementById('gesture-legend');
 
 let manifest = [];
 let currentModel = null;
+
+// Hand mode state. The tracker + gesture engine are loaded on first use.
+let handMode = false;
+let handTracker = null;
+let gestureEngine = null;
+let handStarting = null; // pending start, so overlapping resumes share it
+let handGoal = null; // camera goal while a hand gesture is steering it
+let hoverTarget = null;
+let legendTimer = 0;
+let statusTimer = 0;
+const HINT_TEXT = hint.textContent;
 
 // ---- helpers ----
 
@@ -86,11 +122,14 @@ function quickLookSrc(usdz, model) {
 
 function applyModel(model) {
   currentModel = model;
+  handGoal = null;
   const home = isHome(model);
   const { glb, usdz, poster } = pathsFor(model.id);
 
   viewer.setAttribute('src', glb);
-  viewer.setAttribute('poster', poster);
+  // Posters have the dark background baked in, which would cover the camera.
+  if (handMode) viewer.removeAttribute('poster');
+  else viewer.setAttribute('poster', poster);
   viewer.setAttribute('alt', `3D model of ${model.name}`);
   viewerTitle.textContent = home ? '' : model.name;
 
@@ -207,6 +246,244 @@ function openInfo(title, body) {
 function closeInfo() {
   infoSheet.hidden = true;
 }
+
+// ---- hand mode (MediaPipe gestures over the live back camera) ----
+
+const handModeSupported = window.isSecureContext && !!navigator.mediaDevices?.getUserMedia;
+
+function setStatus(text) {
+  clearTimeout(statusTimer);
+  gestureStatus.textContent = text;
+  gestureStatus.hidden = !text;
+}
+
+function flashStatus(text) {
+  setStatus(text);
+  statusTimer = setTimeout(() => setStatus(''), 4000);
+}
+
+function showLegend() {
+  clearTimeout(legendTimer);
+  gestureLegend.hidden = false;
+  legendTimer = setTimeout(hideLegend, LEGEND_MS);
+}
+
+function hideLegend() {
+  clearTimeout(legendTimer);
+  gestureLegend.hidden = true;
+}
+
+function handModeError(err) {
+  switch (err?.name) {
+    case 'NotAllowedError':
+    case 'SecurityError':
+      return 'Camera blocked — allow camera access for this site in your browser settings';
+    case 'NotFoundError':
+    case 'OverconstrainedError':
+      return 'No camera found on this device';
+    case 'NotReadableError':
+      return 'The camera is busy in another app';
+    default:
+      return "Hand tracking couldn't start — check your connection and try again";
+  }
+}
+
+async function setHandMode(on) {
+  if (on === handMode) return;
+  handMode = on;
+  handButton.setAttribute('aria-pressed', String(on));
+  viewerView.classList.toggle('hand-mode', on);
+  cameraFeed.hidden = !on;
+  hint.textContent = on ? '☝️ Point at a planet, then 🤏 pinch to open it' : HINT_TEXT;
+  if (on) {
+    showLegend();
+    await resumeHandTracking();
+  } else {
+    pauseHandTracking();
+    hideLegend();
+    setStatus('');
+  }
+}
+
+function resumeHandTracking() {
+  if (!handMode || document.hidden || handTracker?.active) return;
+  if (handStarting) return handStarting;
+  const starting = startHandTracking();
+  handStarting = starting;
+  starting.finally(() => {
+    if (handStarting === starting) handStarting = null;
+  });
+  return starting;
+}
+
+async function startHandTracking() {
+  setStatus('Starting camera…');
+  try {
+    if (!handTracker) {
+      const [{ createHandTracker }, { createGestureEngine }] = await Promise.all([
+        import('./hand-tracking.js'),
+        import('./gestures.js'),
+      ]);
+      gestureEngine ??= createGestureEngine(gestureHandlers);
+      handTracker ??= createHandTracker({
+        video: cameraFeed,
+        onFrame: (frame) => gestureEngine.update(frame),
+        onStatus: () => handMode && setStatus('Loading hand tracking…'),
+        onError: (err) => {
+          console.error('Hand tracking stopped:', err);
+          if (!handMode) return;
+          setHandMode(false);
+          flashStatus("Hand tracking isn't working on this device");
+        },
+      });
+    }
+    if (!handMode) return; // switched off while loading
+    if (await handTracker.start()) setStatus(POSE_STATUS.none);
+  } catch (err) {
+    console.error('Hand mode could not start:', err);
+    if (!handMode) return;
+    await setHandMode(false);
+    flashStatus(handModeError(err));
+  }
+}
+
+function pauseHandTracking() {
+  handStarting = null;
+  handTracker?.stop();
+  gestureEngine?.reset();
+  handGoal = null;
+  moveCursor(0, 0, false);
+}
+
+// Hand movement is added to our own running goal (not the still-animating
+// camera) so it feels direct, but kept on a short leash to the real camera so
+// it can't run far past model-viewer's zoom/tilt limits.
+function handOrbitGoal() {
+  const cur = viewer.getCameraOrbit();
+  handGoal ??= { theta: cur.theta, phi: cur.phi, radius: cur.radius };
+  const leash = (v, c, max) => Math.min(c + max, Math.max(c - max, v));
+  handGoal.theta = leash(handGoal.theta, cur.theta, 0.5);
+  handGoal.phi = leash(handGoal.phi, cur.phi, 0.35);
+  handGoal.radius = leash(handGoal.radius, cur.radius, cur.radius * 0.15);
+  return handGoal;
+}
+
+function steerCamera(update) {
+  const goal = handOrbitGoal();
+  update(goal);
+  viewer.cameraOrbit = `${goal.theta}rad ${goal.phi}rad ${goal.radius}m`;
+}
+
+// The nearest tappable thing under the cursor, with some slop for small
+// hands and wobbly tracking. AR can't be launched from a gesture (browsers
+// require a real tap), and the hand toggle is left out so it can't be hit by
+// accident.
+function gestureTargetAt(x, y) {
+  const scope = infoSheet.hidden ? viewerView : infoSheet;
+  let best = null;
+  let bestDist = HAND_HIT_SLOP;
+  for (const el of scope.querySelectorAll('button:not(#ar-button):not(#hand-button)')) {
+    const r = el.getBoundingClientRect();
+    if (!r.width || !r.height) continue;
+    const d = Math.hypot(Math.max(r.left - x, 0, x - r.right), Math.max(r.top - y, 0, y - r.bottom));
+    if (d <= bestDist) {
+      best = el;
+      bestDist = d;
+    }
+  }
+  // Tapping the scrim around the info window (not the card itself) closes it.
+  if (!best && !infoSheet.hidden) {
+    const card = infoSheet.querySelector('.info-card').getBoundingClientRect();
+    const onCard = x >= card.left && x <= card.right && y >= card.top && y <= card.bottom;
+    if (!onCard) best = infoSheet.querySelector('.info-backdrop');
+  }
+  return best;
+}
+
+function setHover(el) {
+  if (el === hoverTarget) return;
+  hoverTarget?.classList.remove('gesture-hover');
+  hoverTarget = el;
+  if (el && !el.classList.contains('info-backdrop')) el.classList.add('gesture-hover');
+}
+
+function moveCursor(x, y, visible) {
+  if (!visible) {
+    gestureCursor.hidden = true;
+    setHover(null);
+    return;
+  }
+  gestureCursor.hidden = false;
+  gestureCursor.style.transform = `translate(${x}px, ${y}px)`;
+  setHover(gestureTargetAt(x, y));
+}
+
+const gestureHandlers = {
+  onPose(pose) {
+    handGoal = null;
+    setStatus(POSE_STATUS[pose] ?? '');
+    gestureCursor.classList.toggle('is-pinching', pose === 'pinch' || pose === 'zoom');
+  },
+  onRotate(dx, dy) {
+    if (!infoSheet.hidden) return;
+    steerCamera((g) => {
+      g.theta -= dx * HAND_SPIN_THETA;
+      g.phi -= dy * HAND_SPIN_PHI;
+    });
+  },
+  onZoom(dy) {
+    if (!infoSheet.hidden) return;
+    steerCamera((g) => {
+      g.radius *= Math.exp(dy * HAND_ZOOM);
+    });
+  },
+  onSwipe(dir) {
+    if (infoSheet.hidden) navigateBy(dir);
+  },
+  onCursor: moveCursor,
+  onClick(x, y) {
+    const target = gestureTargetAt(x, y);
+    if (!target) return;
+    gestureCursor.animate?.([{ scale: 1.6 }, { scale: 0.75 }], { duration: 220, easing: 'ease-out' });
+    target.click();
+  },
+  onBack() {
+    if (!infoSheet.hidden) closeInfo();
+    else if (currentModel && !isHome(currentModel)) goHome();
+  },
+};
+
+handButton.hidden = !handModeSupported;
+handButton.addEventListener('click', () => setHandMode(!handMode));
+gestureLegend.addEventListener('click', hideLegend);
+
+// Native AR needs the camera, so hand it over first (capture phase runs
+// before model-viewer's own click handler) and pick it back up afterwards:
+// WebXR reports when it ends, Scene Viewer returns via visibilitychange, and
+// any touch on the page is the fallback (e.g. after iOS Quick Look).
+arButton.addEventListener(
+  'click',
+  () => {
+    if (!handMode) return;
+    pauseHandTracking();
+    setStatus('Hand mode paused · tap the screen to resume');
+  },
+  { capture: true },
+);
+viewer.addEventListener('ar-status', (e) => {
+  if (e.detail.status === 'not-presenting' || e.detail.status === 'failed') resumeHandTracking();
+});
+window.addEventListener('focus', () => resumeHandTracking());
+viewerView.addEventListener('pointerdown', (e) => {
+  if (!e.target.closest('#ar-button, #hand-button')) resumeHandTracking();
+});
+
+// Never keep the camera on while the page is in the background.
+document.addEventListener('visibilitychange', () => {
+  if (!handMode) return;
+  if (document.hidden) pauseHandTracking();
+  else resumeHandTracking();
+});
 
 // ---- wiring ----
 

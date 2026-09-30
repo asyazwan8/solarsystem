@@ -29,13 +29,31 @@
   <body>
     <!-- The app opens straight into the solar system. Tap a planet to open it. -->
     <section id="viewer-view">
+      <!-- Hand mode: live camera behind the (transparent) 3D view -->
+      <video id="camera-feed" class="camera-feed" playsinline muted autoplay hidden></video>
+
       <button id="back-button" type="button" hidden>
         <span aria-hidden="true">&lsaquo;</span> Back
       </button>
       <button id="info-button" type="button" aria-label="About this planet" hidden>
         <span aria-hidden="true">i</span>
       </button>
+      <button id="hand-button" type="button" aria-pressed="false"
+              aria-label="Hand mode: control the planets with hand gestures" hidden>
+        <span aria-hidden="true">&#x270B;</span>
+      </button>
       <h2 id="viewer-title" class="viewer-title"></h2>
+
+      <!-- Hand mode: what the camera sees you doing, plus a quick gesture guide -->
+      <p id="gesture-status" class="gesture-status" role="status" aria-live="polite" hidden></p>
+      <div id="gesture-legend" class="gesture-legend" hidden>
+        <span>&#x270B; Move to spin</span>
+        <span>&#x1F44B; Swipe for next</span>
+        <span>&#x261D;&#xFE0F; Point to aim</span>
+        <span>&#x1F90F; Pinch to tap</span>
+        <span>&#x1F90F; Hold + up/down to zoom</span>
+        <span>&#x270A; Fist to go back</span>
+      </div>
 
       <model-viewer
         id="viewer"
@@ -65,6 +83,9 @@
 
       <!-- Kid-friendly fun facts (planet pages); tap one for the floating window -->
       <div id="facts-bar" class="facts-bar" hidden></div>
+
+      <!-- Hand mode cursor (follows your index fingertip) -->
+      <div id="gesture-cursor" class="gesture-cursor" aria-hidden="true" hidden></div>
 
       <!-- Floating info window (sits on top of the model) -->
       <div id="info-sheet" class="info-sheet" hidden>
