@@ -29,6 +29,9 @@
   <body>
     <!-- The app opens straight into the solar system. Tap a planet to open it. -->
     <section id="viewer-view">
+      <!-- Hand mode: live camera behind the (transparent) 3D view -->
+      <video id="camera-feed" class="camera-feed" playsinline muted autoplay hidden></video>
+
       <button id="back-button" type="button" hidden>
         <span aria-hidden="true">&lsaquo;</span> Back
       </button>
@@ -37,20 +40,41 @@
       </button>
       <h2 id="viewer-title" class="viewer-title"></h2>
 
+      <!-- Hand mode: what the camera sees you doing, plus a quick gesture guide -->
+      <p id="gesture-status" class="gesture-status" role="status" aria-live="polite" hidden></p>
+      <div id="gesture-legend" class="gesture-legend" hidden>
+        <span>&#x1F90F; Pinch &amp; move to rotate</span>
+        <span>&#x270B; Open hand = bigger</span>
+        <span>&#x270A; Close hand = smaller</span>
+        <span>Tap &#x270B; Hand mode to exit</span>
+      </div>
+
       <model-viewer
         id="viewer"
         ar-modes="webxr scene-viewer quick-look"
         ar-placement="floor"
-        ar-scale="fixed"
+        ar-scale="auto"
+        loading="eager"
+        reveal="auto"
         camera-controls
         autoplay
         interaction-prompt="none"
         shadow-intensity="0.4"
         exposure="1"
         alt=""
-      >
-        <button id="ar-button" slot="ar-button" type="button">View in AR</button>
-      </model-viewer>
+      ></model-viewer>
+
+      <!-- Home loading bar (the 3D model appears straight at its real zoom) -->
+      <div id="load-bar" class="load-bar" hidden><span></span></div>
+
+      <!-- Planet pages: View in AR and Hand mode, side by side -->
+      <div id="action-bar" class="action-bar" hidden>
+        <button id="ar-button" type="button" hidden>View in AR</button>
+        <button id="hand-button" type="button" aria-pressed="false"
+                aria-label="Hand mode: zoom and rotate the planet with your hand" hidden>
+          <span aria-hidden="true">&#x270B;</span> Hand mode
+        </button>
+      </div>
 
       <!-- Tap a planet hint (home only) -->
       <p id="hint" class="hint" hidden>Tap a planet to explore it &middot; pinch to zoom</p>

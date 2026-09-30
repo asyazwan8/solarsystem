@@ -18,6 +18,20 @@ const SOLAR_HOTSPOTS = [
   { target: 'neptune', position: '1.056m -0.026m 0.725m' },
 ];
 
+// Hand mode tuning: spin (radians per screen-width of pinched-hand movement)
+// and zoom strength per unit of hand opening (see gestures.js).
+const HAND_SPIN_THETA = Math.PI * 1.6;
+const HAND_SPIN_PHI = Math.PI * 1.2;
+const HAND_ZOOM = 1.2;
+const LEGEND_MS = 6000;
+
+// What the status pill says for each hand pose (see gestures.js).
+const POSE_STATUS = {
+  none: 'Show your hand to the camera',
+  pinch: '🤏 Rotating',
+  hand: '✋ Open = bigger · ✊ close = smaller',
+};
+
 // ---- element references ----
 const viewer = document.getElementById('viewer');
 const viewerView = document.getElementById('viewer-view');
@@ -31,9 +45,29 @@ const hint = document.getElementById('hint');
 const infoSheet = document.getElementById('info-sheet');
 const infoTitle = document.getElementById('info-title');
 const infoBody = document.getElementById('info-body');
+const arButton = document.getElementById('ar-button');
+const handButton = document.getElementById('hand-button');
+const actionBar = document.getElementById('action-bar');
+const loadBar = document.getElementById('load-bar');
+const loadBarFill = loadBar.querySelector('span');
+const cameraFeed = document.getElementById('camera-feed');
+const gestureStatus = document.getElementById('gesture-status');
+const gestureLegend = document.getElementById('gesture-legend');
 
 let manifest = [];
 let currentModel = null;
+
+// Hand mode state. The tracker + gesture engine are loaded on demand (or
+// preloaded in the background once a planet page has loaded).
+let handMode = false;
+let handModules = null;
+let handTracker = null;
+let gestureEngine = null;
+let handStarting = null; // pending start, so overlapping resumes share it
+let handGoal = null; // camera goal while a hand gesture is steering it
+let handPreloaded = false;
+let legendTimer = 0;
+let statusTimer = 0;
 
 // ---- helpers ----
 
@@ -86,11 +120,19 @@ function quickLookSrc(usdz, model) {
 
 function applyModel(model) {
   currentModel = model;
+  handGoal = null;
   const home = isHome(model);
   const { glb, usdz, poster } = pathsFor(model.id);
+  if (home && handMode) setHandMode(false); // Hand mode is per planet
 
   viewer.setAttribute('src', glb);
-  viewer.setAttribute('poster', poster);
+  // Home: no poster picture (it framed the scene differently from the 3D
+  // view, so the first load looked like two); a loading bar shows instead.
+  // Hand mode: posters have a dark background that would cover the camera.
+  if (home || handMode) viewer.removeAttribute('poster');
+  else viewer.setAttribute('poster', poster);
+  loadBarFill.style.width = '0';
+  loadBar.hidden = !home;
   viewer.setAttribute('alt', `3D model of ${model.name}`);
   viewerTitle.textContent = home ? '' : model.name;
 
@@ -121,6 +163,8 @@ function applyModel(model) {
   nextButton.hidden = home;
   hint.hidden = !home;
   infoButton.hidden = home || !model.blurb;
+  actionBar.hidden = home;
+  arButton.hidden = true; // shown once model-viewer confirms AR is available
 
   closeInfo();
   setupHotspots(model);
@@ -208,6 +252,234 @@ function closeInfo() {
   infoSheet.hidden = true;
 }
 
+// ---- View in AR ----
+
+// model-viewer works out AR support asynchronously after a model is set, and
+// doesn't announce it, so check once the model has loaded (and shortly after).
+function refreshArButton() {
+  arButton.hidden = isHome(currentModel) || !viewer.canActivateAR;
+}
+
+// Native AR needs the camera, so Hand mode hands it over first and picks it
+// back up afterwards: WebXR reports when it ends, Scene Viewer returns via
+// visibilitychange, and any touch on the page is the fallback (e.g. after
+// iOS Quick Look).
+arButton.addEventListener('click', () => {
+  if (handMode) {
+    pauseHandTracking();
+    setStatus('Hand mode paused · tap the screen to resume');
+  }
+  viewer.activateAR();
+});
+
+// ---- home loading bar ----
+
+viewer.addEventListener('progress', (e) => {
+  const p = e.detail.totalProgress;
+  loadBarFill.style.width = `${Math.round(p * 100)}%`;
+  if (p >= 1) loadBar.hidden = true;
+});
+
+viewer.addEventListener('load', () => {
+  loadBar.hidden = true;
+  refreshArButton();
+  setTimeout(refreshArButton, 500);
+  if (!isHome(currentModel)) preloadHandTracking();
+});
+
+// ---- hand mode (MediaPipe hand tracking over the live back camera) ----
+// Per planet only: pinch and move to rotate, open / close the hand to zoom.
+// Leaving the planet means switching Hand mode off first.
+
+const handModeSupported = window.isSecureContext && !!navigator.mediaDevices?.getUserMedia;
+
+function setStatus(text) {
+  clearTimeout(statusTimer);
+  gestureStatus.textContent = text;
+  gestureStatus.hidden = !text;
+}
+
+function flashStatus(text) {
+  setStatus(text);
+  statusTimer = setTimeout(() => setStatus(''), 4000);
+}
+
+function showLegend() {
+  clearTimeout(legendTimer);
+  gestureLegend.hidden = false;
+  legendTimer = setTimeout(hideLegend, LEGEND_MS);
+}
+
+function hideLegend() {
+  clearTimeout(legendTimer);
+  gestureLegend.hidden = true;
+}
+
+function handModeError(err) {
+  switch (err?.name) {
+    case 'NotAllowedError':
+    case 'SecurityError':
+      return 'Camera blocked — allow camera access for this site in your browser settings';
+    case 'NotFoundError':
+    case 'OverconstrainedError':
+      return 'No camera found on this device';
+    case 'NotReadableError':
+      return 'The camera is busy in another app';
+    default:
+      return "Hand tracking couldn't start — check your connection and try again";
+  }
+}
+
+async function setHandMode(on) {
+  if (on === handMode) return;
+  handMode = on;
+  handButton.setAttribute('aria-pressed', String(on));
+  viewerView.classList.toggle('hand-mode', on);
+  cameraFeed.hidden = !on;
+  // Let kids shrink the planet below its starting size while in Hand mode.
+  if (on) viewer.setAttribute('max-camera-orbit', 'auto auto 250%');
+  else if (!isHome(currentModel)) viewer.removeAttribute('max-camera-orbit');
+  if (on) {
+    closeInfo();
+    showLegend();
+    await resumeHandTracking();
+  } else {
+    pauseHandTracking();
+    hideLegend();
+    setStatus('');
+  }
+}
+
+function loadHandModules() {
+  handModules ??= Promise.all([import('./hand-tracking.js'), import('./gestures.js')]).catch((err) => {
+    handModules = null;
+    throw err;
+  });
+  return handModules;
+}
+
+// Quietly download and set up hand tracking (never the camera) once a planet
+// has loaded, so tapping Hand mode starts almost instantly. Skipped when the
+// browser asks to save data.
+function preloadHandTracking() {
+  if (handPreloaded || !handModeSupported || navigator.connection?.saveData) return;
+  handPreloaded = true;
+  const whenIdle = window.requestIdleCallback ?? ((fn) => setTimeout(fn, 1500));
+  whenIdle(
+    () =>
+      loadHandModules()
+        .then(([tracking]) => tracking.preloadHandTracking())
+        .catch((err) => {
+          handPreloaded = false;
+          console.warn('Hand tracking preload failed:', err);
+        }),
+    { timeout: 4000 },
+  );
+}
+
+function resumeHandTracking() {
+  if (!handMode || document.hidden || handTracker?.active) return;
+  if (handStarting) return handStarting;
+  const starting = startHandTracking();
+  handStarting = starting;
+  starting.finally(() => {
+    if (handStarting === starting) handStarting = null;
+  });
+  return starting;
+}
+
+async function startHandTracking() {
+  setStatus('Starting camera…');
+  try {
+    const [{ createHandTracker }, { createGestureEngine }] = await loadHandModules();
+    gestureEngine ??= createGestureEngine(gestureHandlers);
+    handTracker ??= createHandTracker({
+      video: cameraFeed,
+      onFrame: (frame) => gestureEngine.update(frame),
+      onStatus: (phase, progress) =>
+        handMode && setStatus(`Loading hand tracking… ${Math.round(progress * 100)}%`),
+      onError: (err) => {
+        console.error('Hand tracking stopped:', err);
+        if (!handMode) return;
+        setHandMode(false);
+        flashStatus("Hand tracking isn't working on this device");
+      },
+    });
+    if (!handMode) return; // switched off while loading
+    if (await handTracker.start()) setStatus(POSE_STATUS.none);
+  } catch (err) {
+    console.error('Hand mode could not start:', err);
+    if (!handMode) return;
+    await setHandMode(false);
+    flashStatus(handModeError(err));
+  }
+}
+
+function pauseHandTracking() {
+  handStarting = null;
+  handTracker?.stop();
+  gestureEngine?.reset();
+  handGoal = null;
+}
+
+// Hand movement is added to our own running goal (not the still-animating
+// camera) so it feels direct, but kept on a short leash to the real camera so
+// it can't run far past model-viewer's zoom/tilt limits.
+function handOrbitGoal() {
+  const cur = viewer.getCameraOrbit();
+  handGoal ??= { theta: cur.theta, phi: cur.phi, radius: cur.radius };
+  const leash = (v, c, max) => Math.min(c + max, Math.max(c - max, v));
+  handGoal.theta = leash(handGoal.theta, cur.theta, 0.5);
+  handGoal.phi = leash(handGoal.phi, cur.phi, 0.35);
+  handGoal.radius = leash(handGoal.radius, cur.radius, cur.radius * 0.15);
+  return handGoal;
+}
+
+function steerCamera(update) {
+  const goal = handOrbitGoal();
+  update(goal);
+  viewer.cameraOrbit = `${goal.theta}rad ${goal.phi}rad ${goal.radius}m`;
+}
+
+const gestureHandlers = {
+  onPose(pose) {
+    handGoal = null;
+    setStatus(POSE_STATUS[pose] ?? '');
+  },
+  // Pinch and move: turn the planet the way the hand moves, like dragging it.
+  onRotate(dx, dy) {
+    steerCamera((g) => {
+      g.theta -= dx * HAND_SPIN_THETA;
+      g.phi -= dy * HAND_SPIN_PHI;
+    });
+  },
+  // Hand opening (positive) brings the camera closer: the planet grows.
+  onZoom(dOpen) {
+    steerCamera((g) => {
+      g.radius *= Math.exp(-dOpen * HAND_ZOOM);
+    });
+  },
+};
+
+handButton.hidden = !handModeSupported;
+handButton.addEventListener('click', () => setHandMode(!handMode));
+gestureLegend.addEventListener('click', hideLegend);
+
+viewer.addEventListener('ar-status', (e) => {
+  if (e.detail.status === 'not-presenting' || e.detail.status === 'failed') resumeHandTracking();
+});
+window.addEventListener('focus', () => resumeHandTracking());
+viewerView.addEventListener('pointerdown', (e) => {
+  if (!e.target.closest('#ar-button, #hand-button')) resumeHandTracking();
+});
+
+// Never keep the camera on while the page is in the background.
+document.addEventListener('visibilitychange', () => {
+  if (!handMode) return;
+  if (document.hidden) pauseHandTracking();
+  else resumeHandTracking();
+});
+
 // ---- wiring ----
 
 infoButton.addEventListener('click', () => {
@@ -225,7 +497,7 @@ document.addEventListener('keydown', (e) => {
     closeInfo();
     return;
   }
-  if (!infoSheet.hidden) return;
+  if (!infoSheet.hidden || handMode) return; // Hand mode stays on this planet
   if (e.key === 'ArrowRight') navigateBy(1);
   else if (e.key === 'ArrowLeft') navigateBy(-1);
 });
@@ -241,7 +513,7 @@ let swipe = null;
 viewerView.addEventListener(
   'touchstart',
   (e) => {
-    if (!currentModel || isHome(currentModel) || !infoSheet.hidden ||
+    if (!currentModel || isHome(currentModel) || !infoSheet.hidden || handMode ||
         e.touches.length !== 1 || e.target.closest('button')) {
       swipe = null;
       return;
