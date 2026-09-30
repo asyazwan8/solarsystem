@@ -38,37 +38,43 @@
       <button id="info-button" type="button" aria-label="About this planet" hidden>
         <span aria-hidden="true">i</span>
       </button>
-      <button id="hand-button" type="button" aria-pressed="false"
-              aria-label="Hand mode: control the planets with hand gestures" hidden>
-        <span aria-hidden="true">&#x270B;</span>
-      </button>
       <h2 id="viewer-title" class="viewer-title"></h2>
 
       <!-- Hand mode: what the camera sees you doing, plus a quick gesture guide -->
       <p id="gesture-status" class="gesture-status" role="status" aria-live="polite" hidden></p>
       <div id="gesture-legend" class="gesture-legend" hidden>
-        <span>&#x270B; Move to spin</span>
-        <span>&#x1F44B; Swipe for next</span>
-        <span>&#x261D;&#xFE0F; Point to aim</span>
-        <span>&#x1F90F; Pinch to tap</span>
-        <span>&#x1F90F; Hold + up/down to zoom</span>
-        <span>&#x270A; Fist to go back</span>
+        <span>&#x1F90F; Pinch &amp; move to rotate</span>
+        <span>&#x270B; Open hand = bigger</span>
+        <span>&#x270A; Close hand = smaller</span>
+        <span>Tap &#x270B; Hand mode to exit</span>
       </div>
 
       <model-viewer
         id="viewer"
         ar-modes="webxr scene-viewer quick-look"
         ar-placement="floor"
-        ar-scale="fixed"
+        ar-scale="auto"
+        loading="eager"
+        reveal="auto"
         camera-controls
         autoplay
         interaction-prompt="none"
         shadow-intensity="0.4"
         exposure="1"
         alt=""
-      >
-        <button id="ar-button" slot="ar-button" type="button">View in AR</button>
-      </model-viewer>
+      ></model-viewer>
+
+      <!-- Home loading bar (the 3D model appears straight at its real zoom) -->
+      <div id="load-bar" class="load-bar" hidden><span></span></div>
+
+      <!-- Planet pages: View in AR and Hand mode, side by side -->
+      <div id="action-bar" class="action-bar" hidden>
+        <button id="ar-button" type="button" hidden>View in AR</button>
+        <button id="hand-button" type="button" aria-pressed="false"
+                aria-label="Hand mode: zoom and rotate the planet with your hand" hidden>
+          <span aria-hidden="true">&#x270B;</span> Hand mode
+        </button>
+      </div>
 
       <!-- Tap a planet hint (home only) -->
       <p id="hint" class="hint" hidden>Tap a planet to explore it &middot; pinch to zoom</p>
@@ -83,9 +89,6 @@
 
       <!-- Kid-friendly fun facts (planet pages); tap one for the floating window -->
       <div id="facts-bar" class="facts-bar" hidden></div>
-
-      <!-- Hand mode cursor (follows your index fingertip) -->
-      <div id="gesture-cursor" class="gesture-cursor" aria-hidden="true" hidden></div>
 
       <!-- Floating info window (sits on top of the model) -->
       <div id="info-sheet" class="info-sheet" hidden>

@@ -1,11 +1,11 @@
 // Hand mode camera + MediaPipe loop. Loaded on demand (dynamic import) the
 // first time Hand mode is switched on, so the normal app load stays light.
 //
-// Streams the back camera into a <video>, runs MediaPipe's GestureRecognizer
+// Streams the back camera into a <video>, runs MediaPipe's HandLandmarker
 // on each new frame, and reports one hand per frame with its landmarks
 // mapped to screen pixels (matching the video's object-fit: cover crop).
 
-import { FilesetResolver, GestureRecognizer } from '@mediapipe/tasks-vision';
+import { FilesetResolver, HandLandmarker } from '@mediapipe/tasks-vision';
 // The WASM runtime is bundled from the npm package rather than a CDN, so it
 // always matches the JS API version pinned in package.json.
 import simdLoader from '@mediapipe/tasks-vision/vision_wasm_internal.js?url';
@@ -13,31 +13,75 @@ import simdBinary from '@mediapipe/tasks-vision/vision_wasm_internal.wasm?url';
 import noSimdLoader from '@mediapipe/tasks-vision/vision_wasm_nosimd_internal.js?url';
 import noSimdBinary from '@mediapipe/tasks-vision/vision_wasm_nosimd_internal.wasm?url';
 
-const MODEL_URL = '/mediapipe/gesture_recognizer.task';
+const MODEL_URL = '/mediapipe/hand_landmarker.task';
 
 let recognizerPromise = null;
+let recognizerLoaded = false;
+const progressListeners = new Set();
+
+function reportProgress(fraction) {
+  progressListeners.forEach((fn) => fn(fraction));
+}
+
+// Download the hand model ourselves (rather than letting MediaPipe fetch it)
+// so we can show how far along it is.
+async function fetchModel() {
+  const res = await fetch(MODEL_URL);
+  if (!res.ok) throw new Error(`Hand model: HTTP ${res.status}`);
+  const total = Number(res.headers.get('content-length')) || 0;
+  if (!res.body || !total) return new Uint8Array(await res.arrayBuffer());
+  const reader = res.body.getReader();
+  const chunks = [];
+  let received = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+    received += value.byteLength;
+    reportProgress(Math.min(received / total, 0.99));
+  }
+  const model = new Uint8Array(received);
+  let offset = 0;
+  for (const c of chunks) {
+    model.set(c, offset);
+    offset += c.byteLength;
+  }
+  return model;
+}
 
 async function createRecognizer() {
   const simd = await FilesetResolver.isSimdSupported();
   const fileset = simd
     ? { wasmLoaderPath: simdLoader, wasmBinaryPath: simdBinary }
     : { wasmLoaderPath: noSimdLoader, wasmBinaryPath: noSimdBinary };
+  const model = await fetchModel();
   const options = (delegate) => ({
-    baseOptions: { modelAssetPath: MODEL_URL, delegate },
+    baseOptions: { modelAssetBuffer: model.slice(), delegate },
     runningMode: 'VIDEO',
     numHands: 1,
   });
   try {
-    return await GestureRecognizer.createFromOptions(fileset, options('GPU'));
+    return await HandLandmarker.createFromOptions(fileset, options('GPU'));
   } catch (err) {
     console.warn('GPU hand tracking unavailable, using CPU:', err);
-    return GestureRecognizer.createFromOptions(fileset, options('CPU'));
+    return HandLandmarker.createFromOptions(fileset, options('CPU'));
+  } finally {
+    reportProgress(1);
   }
+}
+
+// Start downloading and setting up hand tracking ahead of time (no camera),
+// so switching Hand mode on is quick. Safe to call more than once.
+export function preloadHandTracking() {
+  return getRecognizer();
 }
 
 // One recognizer for the whole session; a failed load can be retried.
 function getRecognizer() {
-  recognizerPromise ??= createRecognizer().catch((err) => {
+  recognizerPromise ??= createRecognizer().then((r) => {
+    recognizerLoaded = true;
+    return r;
+  }, (err) => {
     recognizerPromise = null;
     throw err;
   });
@@ -97,7 +141,7 @@ export function createHandTracker({ video, onFrame, onStatus, onError }) {
     if (video.readyState >= 2 && fresh && now >= nextRunAt) {
       lastVideoTime = video.currentTime;
       try {
-        const result = recognizer.recognizeForVideo(video, now);
+        const result = recognizer.detectForVideo(video, now);
         const end = performance.now();
         nextRunAt = end + (end - now);
         failures = 0;
@@ -122,7 +166,7 @@ export function createHandTracker({ video, onFrame, onStatus, onError }) {
 
   function toFrame(result, t) {
     const rect = video.getBoundingClientRect();
-    const frame = { t, width: rect.width, height: rect.height, landmarks: null, gesture: 'None', score: 0 };
+    const frame = { t, width: rect.width, height: rect.height, landmarks: null };
     const hand = result.landmarks?.[0];
     const vw = video.videoWidth;
     const vh = video.videoHeight;
@@ -137,11 +181,6 @@ export function createHandTracker({ video, onFrame, onStatus, onError }) {
       y: offY + p.y * vh * scale,
       z: p.z * vw * scale,
     }));
-    const top = result.gestures?.[0]?.[0];
-    if (top) {
-      frame.gesture = top.categoryName;
-      frame.score = top.score;
-    }
     return frame;
   }
 
@@ -169,12 +208,16 @@ export function createHandTracker({ video, onFrame, onStatus, onError }) {
       await video.play().catch(() => {}); // autoplay/muted normally allows this
       if (gen !== generation) return false;
 
-      onStatus?.('loading');
+      if (!recognizerLoaded) onStatus?.('loading', 0); // (already preloaded: skip)
+      const onProgress = (p) => gen === generation && onStatus?.('loading', p);
+      progressListeners.add(onProgress);
       try {
         recognizer = await recognizerReady;
       } catch (err) {
         if (gen === generation) stopStream();
         throw err;
+      } finally {
+        progressListeners.delete(onProgress);
       }
       if (gen !== generation) return false;
 
